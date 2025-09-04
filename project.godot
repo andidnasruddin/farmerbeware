@@ -1,0 +1,37 @@
+; Engine configuration file.
+; It's best edited using the editor UI and not directly,
+; since the parameters that go here are not all obvious.
+;
+; Format:
+;   [section] ; section goes between []
+;   param=value ; assign values to parameters
+
+config_version=5
+
+[application]
+
+config/name="FarmerBeware"
+config/features=PackedStringArray("4.4", "Forward Plus")
+config/icon="res://icon.svg"
+
+[autoload]
+
+GameManager="*res://scripts/managers/GameManager.gd"
+GridValidator="*res://scripts/managers/GridValidator.gd"
+GridManager="*res://scripts/managers/GridManager.gd"
+InteractionSystem="*res://scripts/managers/InteractionSystem.gd"
+TimeManager="*res://scripts/managers/TimeManager.gd"
+EventManager="*res://scripts/managers/EventManager.gd"
+CropManager="*res://scripts/managers/CropManager.gd"
+ContractManager="*res://scripts/managers/ContractManager.gd"
+ProcessingManager="*res://scripts/managers/ProcessingManager.gd"
+NetworkManager="*res://scripts/managers/NetworkManager.gd"
+SaveManager="*res://scripts/managers/SaveManager.gd"
+InnovationManager="*res://scripts/managers/InnovationManager.gd"
+AudioManager="*res://scripts/managers/AudioManager.gd"
+UiManager="*res://scripts/managers/UIManager.gd"
+GDAIMCPRuntime="*res://addons/gdai-mcp-plugin-godot/gdai_mcp_runtime.gd"
+
+[editor_plugins]
+
+enabled=PackedStringArray("res://addons/gdai-mcp-plugin-godot/plugin.cfg")

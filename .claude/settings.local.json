@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(/C:\\Users\\dirha\\Documents\\GameCreator\\farmerbeware/**)",
+      "Read(/C:\\Users\\dirha\\Documents\\GameCreator\\farmerbeware/**)",
+      "Bash(git add:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

@@ -1,0 +1,31 @@
+# Godot 4 project ignores
+# Project metadata (should be generated locally)
+.godot/
+.import/
+.mono/
+
+# Build/Export outputs
+export/
+bin/
+build/
+
+# OS/editor cruft
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE settings (customize if you prefer to commit these)
+.vscode/
+.idea/
+
+# Logs and caches
+*.log
+*.tmp
+*.cache
+
+# Python/Node (if used for tooling)
+node_modules/
+dist/
+.pytest_cache/
+__pycache__/
+
