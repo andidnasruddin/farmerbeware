@@ -38,6 +38,7 @@ const DEFAULT_GRID_SIZE: Vector2i = Vector2i(10, 10)
 const MAX_GRID_SIZE: Vector2i = Vector2i(100, 100)
 const CHUNK_SIZE: int = 10
 var soil_chemistry: SoilChemistry = null
+var update_queue: Array[TileUpdate] = []
 
 # ============================================================================
 # INITIALIZATION
@@ -62,6 +63,7 @@ func _ready() -> void:
 	
 	chunk_manager = ChunkManager.new(CHUNK_SIZE, grid_size)
 	soil_chemistry = SoilChemistry.new()
+	set_process(true)
 
 func _initialize_grid() -> void:
 	print("[GridManager] Initializing %dx%d grid..." % [grid_size.x, grid_size.y])
@@ -70,6 +72,19 @@ func _initialize_grid() -> void:
 	if grid_validator and grid_validator.has_method("set_fence_bounds"):
 		grid_validator.set_fence_bounds(fence_bounds)
 	print("[GridManager] Grid initialized")
+
+func _process(_delta: float) -> void:
+	# Batch apply queued updates; emit one tile_changed per position
+	if update_queue.is_empty():
+		return
+	var last_by_pos: Dictionary = {}
+	for u in update_queue:
+		if u is TileUpdate:
+			last_by_pos[u.position] = u
+	for pos in last_by_pos.keys():
+		var t: FarmTileData = get_tile(pos)
+		tile_changed.emit(pos, t)
+	update_queue.clear()
 
 func expand_grid(new_size: Vector2i) -> void:
 	# Cap to MAX_GRID_SIZE and ignore downsizing for now
@@ -125,7 +140,7 @@ func set_tile(pos: Vector2i, tile: FarmTileData) -> bool:
 	
 	grid_data[pos] = tile
 	_mark_tile_dirty(pos)
-	tile_changed.emit(pos, tile)
+	_enqueue_tile_update(pos, TileUpdate.UpdateType.STATE)
 	return true
 
 func has_tile(pos: Vector2i) -> bool:
@@ -177,6 +192,7 @@ func plant_crop(pos: Vector2i, crop_type: String, player_id: int = -1) -> bool:
 	
 	print("[GridManager] Planted %s at %s" % [crop_type, pos])
 	crop_planted.emit(pos, crop_type)
+	_enqueue_tile_update(pos, TileUpdate.UpdateType.STATE)
 	return true
 
 func harvest_crop(pos: Vector2i, player_id: int = -1) -> Dictionary:
@@ -224,6 +240,7 @@ func harvest_crop(pos: Vector2i, player_id: int = -1) -> Dictionary:
 	
 	print("[GridManager] Harvested %d %s at %s" % [final_yield, result["crop_type"], pos])
 	crop_harvested.emit(pos, result["crop_type"], final_yield)
+	_enqueue_tile_update(pos, TileUpdate.UpdateType.STATE)
 	return result
 
 # ============================================================================
@@ -248,6 +265,7 @@ func till_soil(pos: Vector2i, player_id: int = -1) -> bool:
 	tile.state = FarmTileData.TileState.TILLED
 	_mark_tile_dirty(pos)
 	print("[GridManager] Tilled soil at %s" % pos)
+	_enqueue_tile_update(pos, TileUpdate.UpdateType.STATE)
 	return true
 
 func water_tile(pos: Vector2i, amount: float = 0.3, player_id: int = -1) -> bool:
@@ -271,6 +289,7 @@ func water_tile(pos: Vector2i, amount: float = 0.3, player_id: int = -1) -> bool
 		tile.state = FarmTileData.TileState.WATERED
 	
 	_mark_tile_dirty(pos)
+	_enqueue_tile_update(pos, TileUpdate.UpdateType.WATER)
 	return true
 
 # ============================================================================
@@ -305,6 +324,7 @@ func place_machine(pos: Vector2i, machine_type: String, player_id: int = -1) -> 
 	_mark_tile_dirty(pos)
 	print("[GridManager] Placed %s at %s" % [machine_type, pos])
 	machine_placed.emit(pos, machine_type)
+	_enqueue_tile_update(pos, TileUpdate.UpdateType.STATE)
 	return true
 
 # ============================================================================
@@ -320,6 +340,10 @@ func _mark_tile_dirty(pos: Vector2i) -> void:
 		dirty_tiles.append(pos)
 	var cpos: Vector2i = chunk_manager.mark_dirty_by_pos(pos) if chunk_manager else GridHelpers.grid_to_chunk(pos, CHUNK_SIZE)
 	emit_signal("chunk_dirty", cpos)
+
+func _enqueue_tile_update(pos: Vector2i, utype: int, payload: Dictionary = {}, priority: int = 0) -> void:
+	var u := TileUpdate.new(pos, utype, payload, priority)
+	update_queue.append(u)
 
 func _get_crop_maturity_time(crop_type: String) -> float:
 	match crop_type:

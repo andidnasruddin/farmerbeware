@@ -1,3 +1,347 @@
+# Grid System Completion Summary
+
+## Overview
+This document summarizes the implemented Grid System per `2_GridSystem.md`, including file locations, responsibilities, signals/APIs, and where to make changes.
+
+---
+
+## 📋 Autoloads and Order
+
+### Core Autoloads (unchanged)
+- **Autoload #2:** `GridValidator`
+- **Autoload #3:** `GridManager`
+- All other autoloads remain as previously set (1–14)
+
+---
+
+## 🏗️ Core Data
+
+### FarmTile Resource
+**Path:** `res://scripts/grid/FarmTileData.gd`  
+**Type:** Resource (replaces inner class approach)
+
+#### Identity and State
+```gdscript
+@export var position: Vector2i
+@export var chunk_id: Vector2i
+@export var grid_index: int
+@export var is_fenced: bool
+@export var state: int = TileState.EMPTY
+```
+
+#### Tile Contents
+```gdscript
+@export var crop: Dictionary
+@export var machine: Dictionary
+@export var item: Dictionary
+
+func has_crop() -> bool
+func has_machine() -> bool
+func is_empty() -> bool
+```
+
+#### Chemistry Properties (stubs)
+```gdscript
+@export var nitrogen: float
+@export var phosphorus: float
+@export var potassium: float
+@export var ph_level: float
+@export var water_content: float      # 0..100 scale
+@export var organic_matter: float
+@export var fertilizer_type: String
+@export var contamination_level: float
+```
+
+#### History Tracking
+```gdscript
+@export var previous_crops: Array[String]
+@export var last_harvest_quality: int
+@export var same_crop_count: int
+@export var fallow_days: int
+@export var total_harvests: int
+```
+
+#### Serialization
+```gdscript
+to_dict() -> Dictionary
+from_dict(data: Dictionary) -> void  # includes legacy migration
+```
+
+---
+
+## 🌐 Grid Manager
+
+**Path:** `res://scripts/managers/GridManager.gd`
+
+### Constants and Defaults
+```gdscript
+const DEFAULT_GRID_SIZE := Vector2i(10, 10)
+const MAX_GRID_SIZE := Vector2i(100, 100)
+const CHUNK_SIZE := 10
+var fence_bounds: Rect2i = Rect2i(Vector2i.ZERO, DEFAULT_GRID_SIZE)
+```
+
+### Dependencies
+- `grid_validator: Node`
+- `chunk_manager: ChunkManager`
+- `soil_chemistry: SoilChemistry`
+
+### Core Data
+```gdscript
+var grid_data: Dictionary            # Vector2i -> FarmTileData
+var dirty_tiles: Array[Vector2i]
+var update_queue: Array[TileUpdate]  # batched tile updates
+```
+
+### Signals
+```gdscript
+signal tile_changed(position: Vector2i, tile: FarmTileData)
+signal grid_expanded(new_size: Vector2i)
+signal chunk_dirty(chunk_pos: Vector2i)
+signal crop_planted(position: Vector2i, crop_type: String)
+signal crop_harvested(position: Vector2i, crop_type: String, yield_amount: int)
+signal machine_placed(position: Vector2i, machine_type: String)
+signal machine_removed(position: Vector2i, machine_type: String)
+```
+
+### Public API
+
+#### Tile Operations
+- `get_tile(pos) -> FarmTileData`
+- `set_tile(pos, tile) -> bool`
+- `has_tile(pos) -> bool`
+- `remove_tile(pos) -> bool`
+
+#### Farming Actions
+- `till_soil(pos, player_id) -> bool`
+- `water_tile(pos, amount_0_1, player_id) -> bool`
+- `plant_crop(pos, crop_type, player_id) -> bool`
+- `harvest_crop(pos, player_id) -> Dictionary`
+- `place_machine(pos, machine_type, player_id) -> bool`
+
+#### Grid Management
+- `expand_grid(new_size: Vector2i) -> void`
+- `serialize_grid() -> Dictionary` (version: 2)
+- `deserialize_grid(data: Dictionary) -> void`
+- `is_chunk_dirty(chunk_id: Vector2i) -> bool`
+
+### Batching System (new)
+- Enqueue once per tile change via `_enqueue_tile_update(pos, TileUpdate.UpdateType.*)`
+- Processed end-of-frame in `_process(_delta)`
+- Emits `tile_changed` per affected position
+
+---
+
+## 🔧 Helper Classes
+
+### GridHelpers
+**Path:** `res://scripts/grid/GridHelpers.gd`
+
+**Utilities:**
+- `grid_to_index(pos, width) -> int`
+- `index_to_grid(index, width) -> Vector2i`
+- `grid_to_chunk(pos, chunk_size) -> Vector2i`
+- `chunk_to_bounds(chunk_id, chunk_size) -> Rect2i`
+- `neighbors4(pos) -> Array[Vector2i]`
+- `neighbors8(pos) -> Array[Vector2i]`
+
+### TileUpdate (batching unit)
+**Path:** `res://scripts/grid/TileUpdate.gd`
+
+```gdscript
+enum UpdateType { STATE, CHEMISTRY, WATER, FERTILIZER, CONTAMINATION, RESET }
+var position: Vector2i
+var update_type: int
+var payload: Dictionary
+var priority: int
+```
+
+---
+
+## ✅ Validation System
+
+### GridValidator
+**Path:** `res://scripts/managers/GridValidator.gd`
+
+#### Fence Support
+```gdscript
+var fence_bounds: Rect2i
+set_fence_bounds(bounds: Rect2i)
+is_fenced(pos) -> bool
+is_within_farm_bounds(pos) -> bool  # uses fence if set; else grid bounds
+```
+
+#### New API
+- `can_place_at(pos, size) -> bool` - bounds only
+- `get_area_tiles(pos, size) -> Array[Vector2i]`
+- `check_adjacency_rules(pos, type) -> bool` - stub returns true
+- `world_to_grid(world_pos) -> Vector2i`
+- `grid_to_world(grid_pos) -> Vector2`
+
+---
+
+## 🗺️ Chunking System
+
+### ChunkManager
+**Path:** `res://scripts/grid/ChunkManager.gd`
+
+**Responsibilities:**
+- `get_chunk_id_for_pos(pos) -> Vector2i`
+- `get_chunk_bounds(chunk_id) -> Rect2i`
+- `mark_dirty_by_pos(pos) -> chunk_id`
+- `get_dirty_chunks() -> Array[Vector2i]`
+- `iterate_chunk_positions(chunk_id) -> Array[Vector2i]`
+- `set_config(chunk_size, grid_size)`
+
+---
+
+## 🧪 Chemistry System (Stubs)
+
+**Path:** `res://scripts/chemistry/`
+
+| File | Purpose |
+|------|---------|
+| `SoilChemistry.gd` | Orchestrator; clamp, evaluate quality (stub) |
+| `NPKManager.gd` | NPK index, apply fertilizer (stub) |
+| `PHManager.gd` | pH factor and adjust (stub) |
+| `WaterManager.gd` | Evaporation/irrigate (stub; no-op by default) |
+| `ContaminationManager.gd` | Factor=1.0 (stub) |
+
+GridManager holds a `SoilChemistry` instance; not yet affecting gameplay.
+
+---
+
+## 🚧 Fence & Expansion
+
+### FenceSystem
+**Path:** `res://scripts/fence/FenceSystem.gd`
+
+```gdscript
+@export var min_size = Vector2i(10, 10)
+@export var max_size = Vector2i(100, 100)
+var bounds: Rect2i
+
+set_bounds(new_bounds)
+expand_to(new_size)
+apply_to_grid_manager()  # optional: syncs grid size to fence
+signal fence_updated(bounds)
+```
+
+### FenceValidator
+**Path:** `res://scripts/fence/FenceValidator.gd`
+
+**Stateless Helpers:**
+- `is_inside(bounds, pos) -> bool`
+- `is_on_edge(bounds, pos) -> bool`
+- `clamp_to_bounds(bounds, pos) -> Vector2i`
+- `rect_tiles(bounds) -> Array[Vector2i]`
+
+### ExpansionManager
+**Path:** `res://scripts/fence/ExpansionManager.gd`
+
+```gdscript
+request_expand_to(new_size) -> bool
+signal expansion_requested
+signal expansion_approved
+signal expansion_rejected
+signal expansion_completed
+```
+
+---
+
+## 🎨 Visual System
+
+### TileMapRenderer
+- **Path:** `res://scenes/visual/TileMapRenderer.gd`
+- **Scene:** `res://scenes/visual/TileMapRenderer.tscn`
+
+**Responsibilities:**
+- Draw tiles by `FarmTileData.TileState` using solid colors
+- Subscribe to: `grid_expanded`, `tile_changed`, `chunk_dirty`
+- Methods: `_get_tile_color(pos)`, `grid_to_world`, `world_to_grid`
+
+### ChunkRenderer
+- **Path:** `res://scenes/visual/ChunkRenderer.gd`
+- **Scene:** `res://scenes/visual/ChunkRenderer.tscn`
+
+**Responsibilities:**
+- Draw `CHUNK_SIZE` grid lines
+- Highlight dirty chunks for `highlight_seconds`
+- Subscribe to: `chunk_dirty`, `grid_expanded`
+
+### GridDebugOverlay
+- **Path:** `res://scenes/debug/GridDebugOverlay.gd`
+
+**Features:**
+- Show fence rectangle outline
+- Draw chunk grid lines
+- Hover highlight over tile under mouse
+
+```gdscript
+@export show_fence
+@export show_chunks
+@export show_hover
+```
+
+---
+
+## 🎬 Grid System Scene
+
+**Path:** `res://scenes/game/GridSystem.tscn`
+
+**Scene Composition (top to bottom for layering):**
+1. `TileMapRenderer`
+2. `ChunkRenderer`
+3. `GridDebugOverlay` (optional)
+
+---
+
+## 💾 Serialization
+
+**GridManager:**
+- `serialize_grid()` returns version: 2
+- `deserialize_grid()`:
+  - Reconfigures fence and ChunkManager
+  - Updates GridValidator size + fence
+  - Handles legacy fields via `FarmTileData.from_dict`:
+    - `water_level` → `water_content` (×100)
+    - `fertility` → `organic_matter` (scaled)
+    - Derives state if missing
+
+---
+
+## 🔧 How to Extend/Change
+
+| Component | How to Modify |
+|-----------|--------------|
+| **Tile visuals** | Adjust colors or replace with textures in `TileMapRenderer._get_tile_color` |
+| **Chunk overlay** | Tweak `highlight_seconds` or colors in `ChunkRenderer` |
+| **Fence rect** | Use `FenceSystem.set_bounds()` or `expand_to(new_size)`; call `apply_to_grid_manager()` |
+| **Batch updates** | Extend `TileUpdate.UpdateType` and enqueue through `_enqueue_tile_update` |
+| **Chemistry** | Change `WaterManager.EVAP_RATE_PER_SEC`, or call `SoilChemistry.process_batch()` |
+| **Validator** | Implement real `check_adjacency_rules()` when crop rotation rules arrive |
+
+---
+
+## ✔️ Quick Sanity Checklist
+
+### Tilling/Watering/Planting/Harvesting
+- ✅ Tile color changes immediately
+- ✅ Only the affected chunk flashes
+
+### Expanding grid (e.g., 20×20)
+- ✅ Fence and visual layers update
+- ✅ Validator allows (19,19) and rejects (20,20)
+
+### Serialization
+- ✅ Roundtrip retains tile count and states
+
+### Debug overlay
+- ✅ Fence outline draws
+- ✅ Hover shows tile under cursor
+
+
+
 res://
 ├── scenes/
 │   ├── game/

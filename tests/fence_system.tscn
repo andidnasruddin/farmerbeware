@@ -1,0 +1,10 @@
+[gd_scene load_steps=3 format=3 uid="uid://cmsvdh0esphdy"]
+
+[ext_resource type="Script" uid="uid://gtrovxslgldq" path="res://scripts/fence/FenceSystem.gd" id="1_qjloj"]
+[ext_resource type="Script" uid="uid://buj2rtika80ou" path="res://scripts/fence/ExpansionManager.gd" id="2_isygt"]
+
+[node name="FenceSystem" type="Node"]
+script = ExtResource("1_qjloj")
+
+[node name="Node" type="Node" parent="."]
+script = ExtResource("2_isygt")
