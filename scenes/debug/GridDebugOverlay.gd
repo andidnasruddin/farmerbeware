@@ -12,6 +12,9 @@ class_name GridDebugOverlay
 var grid_manager: Node = null
 var grid_validator: Node = null
 
+var preview_targets: Array[Vector2i] = []
+var preview_valid: Dictionary = {}
+
 var tile_size: int = 64
 var grid_size: Vector2i = Vector2i(10, 10)
 var chunk_size: int = 10
@@ -52,6 +55,7 @@ func _on_grid_expanded(new_size: Vector2i) -> void:
 # DRAW
 # ============================================================================
 func _draw() -> void:
+	print("[GDO] _draw preview_count=", preview_targets.size())
 	if grid_manager == null:
 		return
 
@@ -78,3 +82,27 @@ func _draw() -> void:
 		if gp.x >= 0 and gp.x < grid_size.x and gp.y >= 0 and gp.y < grid_size.y:
 			var rect := Rect2(Vector2(gp.x * tile_size, gp.y * tile_size), Vector2(tile_size, tile_size))
 			draw_rect(rect, hover_color, true)
+
+	# Preview overlay
+	if preview_targets.size() > 0:
+		var vcol: Color = Color(0.25, 0.85, 0.35, 0.45)
+		var icol: Color = Color(0.90, 0.25, 0.25, 0.45)
+		var ocol: Color = Color(0.95, 0.95, 0.95, 0.7)
+		for p in preview_targets:
+			var rect: Rect2 = Rect2(Vector2(p.x * tile_size, p.y * tile_size), Vector2(tile_size, tile_size))
+			var ok: bool = bool(preview_valid.get(p, false))
+			var col: Color = vcol if ok else icol
+			draw_rect(rect, col, true)
+			draw_rect(rect, ocol, false, 1.0, true)
+
+func set_preview(targets: Array[Vector2i], validity: Dictionary) -> void:
+	preview_targets = targets if targets != null else []
+	preview_valid = validity if validity != null else {}
+	queue_redraw()
+	print("[GDO] set_preview count=", preview_targets.size())
+
+func clear_preview() -> void:
+	preview_targets = []
+	preview_valid = {}
+	print("[GDO] clear_preview")
+	queue_redraw()

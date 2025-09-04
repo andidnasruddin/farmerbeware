@@ -1,0 +1,8 @@
+[gd_scene load_steps=2 format=3 uid="uid://ibnjpvv2cfpn"]
+
+[ext_resource type="Script" uid="uid://bq3utrfxvlgmd" path="res://scenes/tools/ToolPreview.gd" id="1_0dvsw"]
+
+[node name="ToolPreview" type="Node2D"]
+script = ExtResource("1_0dvsw")
+enabled = null
+player_path = null

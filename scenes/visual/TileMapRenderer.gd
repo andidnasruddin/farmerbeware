@@ -7,6 +7,9 @@ class_name TileMapRenderer
 # PROPERTIES
 # ============================================================================
 @export var draw_grid_lines: bool = true
+@export var preview_enabled: bool = true
+var preview_targets: Array[Vector2i] = []
+var preview_valid: Dictionary = {}    # Vector2i -> bool
 
 var grid_manager: Node = null
 var tile_size: int = 64
@@ -53,6 +56,18 @@ func _on_chunk_dirty(_chunk_id: Vector2i) -> void:
 # ============================================================================
 # DRAW
 # ============================================================================
+func set_preview(targets: Array[Vector2i], validity: Dictionary) -> void:
+	if not preview_enabled:
+		return
+	preview_targets = targets if targets != null else []
+	preview_valid = validity if validity != null else {}
+	queue_redraw()
+
+func clear_preview() -> void:
+	preview_targets = []
+	preview_valid = {}
+	queue_redraw()
+
 func _draw() -> void:
 	if grid_manager == null:
 		return
@@ -73,6 +88,18 @@ func _draw() -> void:
 		for y in range(grid_size.y + 1):
 			var yy := float(y * tile_size)
 			draw_line(Vector2(0, yy), Vector2(grid_size.x * tile_size, yy), grid_line, 1.0)
+
+	# Preview overlay (drawn above tiles)
+	if preview_enabled and preview_targets.size() > 0:
+		var vcol: Color = Color(0.25, 0.85, 0.35, 0.45)  # green
+		var icol: Color = Color(0.90, 0.25, 0.25, 0.45)  # red
+		var ocol: Color = Color(0.95, 0.95, 0.95, 0.7)   # outline
+		for p in preview_targets:
+			var ok: bool = bool(preview_valid.get(p, false))
+			var col: Color = vcol if ok else icol
+			var rect: Rect2 = Rect2(Vector2(p.x * tile_size, p.y * tile_size), Vector2(tile_size, tile_size))
+			draw_rect(rect, col, true)
+			draw_rect(rect, ocol, false, 1.0, true)
 
 func _get_tile_color(pos: Vector2i) -> Color:
 	# Avoid creating tiles: only query if it exists; else EMPTY color

@@ -1,17 +1,32 @@
-[gd_scene load_steps=5 format=3 uid="uid://do3cvd62fojx4"]
+[gd_scene load_steps=7 format=3 uid="uid://do3cvd62fojx4"]
 
 [ext_resource type="PackedScene" uid="uid://c3guexuc8edxo" path="res://scenes/visual/TileMapRenderer.tscn" id="1_0psxa"]
 [ext_resource type="Script" uid="uid://b76uiywyx2onf" path="res://scenes/debug/GridDebugOverlay.gd" id="1_olcc5"]
 [ext_resource type="PackedScene" uid="uid://jayi2juk7q56" path="res://scenes/visual/ChunkRenderer.tscn" id="2_olcc5"]
 [ext_resource type="PackedScene" uid="uid://cvt2frmd0nnde" path="res://scenes/player/Player.tscn" id="4_xrkjl"]
+[ext_resource type="Script" uid="uid://buat2f247ahxr" path="res://scripts/interaction/ToolPreviewUpdater.gd" id="5_puaxd"]
+[ext_resource type="Script" uid="uid://dj47vfp3jis37" path="res://scenes/tools/PreviewLayer.gd" id="5_t2vun"]
 
 [node name="GridSystem" type="Node2D"]
 
-[node name="GridDebugOverlay" type="Node2D" parent="."]
+[node name="OverlayLayer" type="CanvasLayer" parent="."]
+layer = 10
+
+[node name="GridDebugOverlay" type="Node2D" parent="OverlayLayer" groups=["grid_preview"]]
 script = ExtResource("1_olcc5")
+
+[node name="ToolPreviewUpdater" type="Node" parent="."]
+script = ExtResource("5_puaxd")
+player_path = NodePath("../Player")
+renderer_path = NodePath("../OverlayLayer/GridDebugOverlay")
 
 [node name="TileMapRenderer" parent="." instance=ExtResource("1_0psxa")]
 
 [node name="ChunkRenderer" parent="." instance=ExtResource("2_olcc5")]
+highlight_seconds = 0.1
 
-[node name="Player" parent="." instance=ExtResource("4_xrkjl")]
+[node name="PreviewLayer" type="Node2D" parent="."]
+z_index = 300
+script = ExtResource("5_t2vun")
+
+[node name="Player" parent="." groups=["player"] instance=ExtResource("4_xrkjl")]
