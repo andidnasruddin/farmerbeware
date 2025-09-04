@@ -282,10 +282,12 @@ func _on_crop_planted(position: Vector2i, crop_type: String) -> void:
 	
 	# Get soil conditions from GridManager
 	if grid_manager:
-		var tile: GridManager.FarmTile = grid_manager.get_tile(position)
+		var tile: FarmTileData = grid_manager.get_tile(position)
 		if tile:
-			crop_data.water_level = tile.water_level
-			crop_data.soil_fertility = tile.fertility
+		# Convert 0..100 water_content to 0..1
+			crop_data.water_level = clamp(tile.water_content / 100.0, 0.0, 1.0)
+			# Simple fertility proxy from NPK (0..100 each -> 0..1)
+			crop_data.soil_fertility = clamp((tile.nitrogen + tile.phosphorus + tile.potassium) / 300.0, 0.0, 1.0)
 	
 	# Store crop data for tracking
 	active_crops[position] = crop_data
@@ -304,10 +306,14 @@ func _on_crop_harvested(position: Vector2i, crop_type: String, yield_amount: int
 	var final_quality: CropQuality = _calculate_final_quality(crop_data)
 	var quality_multiplier: float = _get_quality_multiplier(final_quality)
 	var final_yield: int = int(yield_amount * quality_multiplier)
-	
+	var q_idx: int = CropQuality.values().find(int(final_quality))
+	var q_name: String = "UNKNOWN"
+	if q_idx != -1:
+		q_name = String(CropQuality.keys()[q_idx])
+
 	print("[CropManager] Crop harvested: %s quality %s (yield: %d)" % [
-		crop_type, 
-		CropQuality.keys()[final_quality],
+		crop_type,
+		q_name,
 		final_yield
 	])
 	
@@ -574,6 +580,10 @@ func get_mature_crops() -> Array[CropData]:
 		if crop.is_harvestable():
 			mature_crops.append(crop)
 	return mature_crops
+
+func _quality_name(q: CropQuality) -> String:
+	var i: int = CropQuality.values().find(int(q))
+	return String(CropQuality.keys()[i]) if i != -1 else "UNKNOWN"
 
 # ============================================================================
 # DEBUG

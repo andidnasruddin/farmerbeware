@@ -1,0 +1,25 @@
+[gd_resource type="Resource" script_class="FarmTileData" load_steps=2 format=3 uid="uid://bckwohdop2eou"]
+
+[ext_resource type="Script" uid="uid://c0sdaicrklkn0" path="res://scripts/grid/FarmTileData.gd" id="1_2h17i"]
+
+[resource]
+script = ExtResource("1_2h17i")
+position = Vector2i(0, 0)
+chunk_id = Vector2i(0, 0)
+grid_index = -1
+is_fenced = false
+state = 0
+nitrogen = 50.0
+phosphorus = 50.0
+potassium = 50.0
+ph_level = 7.0
+water_content = 0.0
+organic_matter = 10.0
+fertilizer_type = ""
+contamination_level = 0.0
+previous_crops = Array[String]([])
+last_harvest_quality = 0
+same_crop_count = 0
+fallow_days = 0
+total_harvests = 0
+metadata/_custom_type_script = "uid://c0sdaicrklkn0"

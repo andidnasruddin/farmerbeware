@@ -21,6 +21,9 @@ var max_distance_from_center: int = 25
 var min_distance_between_machines: int = 2
 var allow_overlap: bool = false
 
+# Fence bounds (rectangular farm area). If size is zero, fall back to grid bounds.
+var fence_bounds: Rect2i = Rect2i(Vector2i.ZERO, Vector2i.ZERO)
+
 # ============================================================================
 # INITIALIZATION
 # ============================================================================
@@ -46,9 +49,38 @@ func is_valid_position(grid_pos: Vector2i) -> bool:
 
 func is_within_farm_bounds(grid_pos: Vector2i) -> bool:
 	"""Check if position is within the playable farm area"""
-	var center: Vector2i = grid_size / 2
-	var distance: float = grid_pos.distance_to(Vector2(center))
-	return distance <= max_distance_from_center
+	# Prefer rectangular fence bounds if configured; otherwise fall back to grid bounds.
+	if fence_bounds.size.x > 0 and fence_bounds.size.y > 0:
+		return fence_bounds.has_point(grid_pos)
+	# Fallback: inside grid rectangle
+	return is_valid_position(grid_pos)
+
+func is_fenced(grid_pos: Vector2i) -> bool:
+	"""Return true if position lies within the current fence bounds (or grid bounds if no fence configured)."""
+	return is_within_farm_bounds(grid_pos)
+
+func can_place_at(pos: Vector2i, size: Vector2i) -> bool:
+	"""Return true if an axis-aligned area starting at pos with given size fits and is within fence bounds."""
+	var tiles: Array[Vector2i] = get_area_tiles(pos, size)
+	for t in tiles:
+		if not is_valid_position(t):
+			return false
+		if not is_fenced(t):
+			return false
+	# Occupancy checks are deferred to GridManager; validator only checks bounds here.
+	return true
+
+func get_area_tiles(pos: Vector2i, size: Vector2i) -> Array[Vector2i]:
+	"""Return all grid positions within a rectangle starting at pos with width=size.x and height=size.y."""
+	var out: Array[Vector2i] = []
+	for y in range(size.y):
+		for x in range(size.x):
+			out.append(pos + Vector2i(x, y))
+	return out
+
+func check_adjacency_rules(pos: Vector2i, type: String) -> bool:
+	"""Stub for future adjacency/rotation rules. Returns true for now."""
+	return true
 
 func validate_crop_placement(grid_pos: Vector2i, crop_type: String = "") -> Dictionary:
 	"""Validate if a crop can be placed at this position"""
@@ -64,9 +96,9 @@ func validate_crop_placement(grid_pos: Vector2i, crop_type: String = "") -> Dict
 		validation_failed.emit(grid_pos, result["reason"])
 		return result
 	
-	# Check farm bounds
-	if not is_within_farm_bounds(grid_pos):
-		result["reason"] = "Position outside farm area"
+	# Check fence bounds (rectangular farm area)
+	if not is_fenced(grid_pos):
+		result["reason"] = "Position outside fenced area"
 		validation_failed.emit(grid_pos, result["reason"])
 		return result
 	
@@ -93,9 +125,9 @@ func validate_machine_placement(grid_pos: Vector2i, machine_type: String) -> Dic
 		validation_failed.emit(grid_pos, result["reason"])
 		return result
 	
-	# Check farm bounds
-	if not is_within_farm_bounds(grid_pos):
-		result["reason"] = "Position outside farm area"  
+	# Check fence bounds
+	if not is_fenced(grid_pos):
+		result["reason"] = "Position outside fenced area"  
 		validation_failed.emit(grid_pos, result["reason"])
 		return result
 	
@@ -273,6 +305,10 @@ func set_grid_size(new_size: Vector2i) -> void:
 func set_farm_bounds(max_distance: int) -> void:
 	max_distance_from_center = max_distance
 	print("[GridValidator] Farm bounds updated to distance: %d" % max_distance)
+
+func set_fence_bounds(bounds: Rect2i) -> void:
+	fence_bounds = bounds
+	print("[GridValidator] Fence bounds set to: pos=%s size=%s" % [bounds.position, bounds.size])
 
 # ============================================================================
 # UTILITY FUNCTIONS

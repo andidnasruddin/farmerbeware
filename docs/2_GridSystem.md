@@ -169,3 +169,56 @@ Chemistry updates in batches for performance
 Chunks are 10x10 tiles for optimization
 All positions use Vector2i for grid coordinates
 Autoload order critical: Validator MUST be first
+
+---
+
+Implementation Decisions and Updates (Agreed)
+
+- Autoload Order (clarification):
+  - GameManager = Autoload #1 (global orchestrator)
+  - GridValidator = Autoload #2 (validates everything)
+  - GridManager = Autoload #3 (core grid operations)
+  - Note: Any references in this file to GridValidator as “Autoload #1” and GridManager as “Autoload #2” should be read as #2 and #3 respectively.
+
+- FarmTile as Resource:
+  - Use `res://scripts/grid/FarmTileData.gd` (Resource) for each tile.
+  - Remove any inner tile class usage in GridManager; store and serialize tiles via Resource instances.
+  - Include identity, chemistry, and history fields as outlined in this document; chemistry calculations are stubbed initially.
+
+- GridManager Defaults and Signals:
+  - Constants: `DEFAULT_GRID_SIZE = Vector2i(10, 10)`, `MAX_GRID_SIZE = Vector2i(100, 100)`, `CHUNK_SIZE = 10`.
+  - Signals: ensure these exist and are emitted appropriately:
+    - `tile_changed(pos: Vector2i, tile)`
+    - `grid_expanded(new_size: Vector2i)`
+    - `chunk_dirty(chunk_pos: Vector2i)`
+  - Dirty structures:
+    - `dirty_chunks: Dictionary` mapping `Vector2i -> bool` (mark-only approach for now)
+    - `update_queue: Array[TileUpdate]` for batched updates
+  - Fence bounds: `fence_bounds: Rect2i = Rect2i(Vector2i.ZERO, DEFAULT_GRID_SIZE)` maintained by GridManager.
+  - Expansion API:
+    - `expand_grid(new_size: Vector2i) -> void` should cap to `MAX_GRID_SIZE`, update `grid_size`, update `fence_bounds`, call `GridValidator.set_grid_size(new_size)`, and emit `grid_expanded(new_size)`.
+  - Backward‑compatible gameplay API: keep `till_soil`, `plant_crop`, `water_tile`, `harvest_crop` public APIs; update internals to work with `FarmTileData`.
+
+- Chunking:
+  - Use 10x10 tile chunks (`CHUNK_SIZE = 10`).
+  - Add helpers to compute chunk coordinates from grid positions and mark chunks dirty whenever a tile changes.
+  - No multithreaded chemistry yet; focus on correct dirty tracking and batch processing plumbing.
+
+- GridValidator APIs (additions with safe defaults):
+  - `is_fenced(pos: Vector2i) -> bool`
+    - Returns whether a position lies within the current `fence_bounds` managed by GridManager (stub allowed initially).
+  - `can_place_at(pos: Vector2i, size: Vector2i) -> bool`
+    - Returns false if any tile in `get_area_tiles(pos, size)` is invalid; true otherwise.
+  - `get_area_tiles(pos: Vector2i, size: Vector2i) -> Array[Vector2i]`
+    - Returns the list of tiles covering the rectangular area from `pos` with `size` width/height.
+  - `check_adjacency_rules(pos: Vector2i, type: String) -> bool`
+    - Stub for crop rotation / adjacency rules; return true for now.
+
+- Chemistry (stub first):
+  - Create `SoilChemistry.gd` with function placeholders; wire fields on `FarmTileData` but defer heavy calculations.
+
+- Visuals (defer):
+  - Defer `TileMapRenderer.tscn` and `ChunkRenderer.tscn` integration until the data layer and dirty chunk signaling are verified.
+
+- Testing:
+  - Existing `Z_test.gd` interactions (till/plant/water/harvest) remain valid and should continue to work.

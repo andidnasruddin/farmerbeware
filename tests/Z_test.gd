@@ -55,10 +55,23 @@ func _ready() -> void:
 	
 	print("\n=== Z_TEST: UI MANAGER (Autoload #14) ===")
 	_test_ui_manager()
+
+	print("\n=== Z_TEST: GRID VALIDATOR + EXPANSION ===")
+	await _test_grid_validator()
+	await _test_grid_expand_and_chunks()
 	
 	print("\n=== Z_TEST: COMPLETE ===")
 
+	# Observe GridManager events
+	var gm: Node = _S("GridManager")
+	if gm:
+		if gm.has_signal("chunk_dirty") and not gm.is_connected("chunk_dirty", Callable(self, "_on_chunk_dirty")):
+			gm.chunk_dirty.connect(_on_chunk_dirty)
+		if gm.has_signal("grid_expanded") and not gm.is_connected("grid_expanded", Callable(self, "_on_grid_expanded")):
+			gm.grid_expanded.connect(_on_grid_expanded)
 
+
+# removed duplicate stub of _test_grid_validator (see full version later)
 # -----------------------------------------------------------------------------
 # Utilities
 # -----------------------------------------------------------------------------
@@ -82,7 +95,6 @@ func _try_print_debug(name: String) -> void:
 		print(name, " debug: ", info)
 	else:
 		print(name, " debug: (no get_debug_info)")
-
 
 # -----------------------------------------------------------------------------
 # ContractManager test
@@ -212,6 +224,12 @@ func _test_network_manager() -> void:
 func _on_net_event(event_name: String, payload: Dictionary, from_peer: int) -> void:
 	print("[NET EVENT] ", event_name, " from ", from_peer, ": ", payload)
 
+func _on_chunk_dirty(chunk_id: Vector2i) -> void:
+	print("[Z_TEST] chunk_dirty: ", chunk_id)
+
+func _on_grid_expanded(new_size: Vector2i) -> void:
+	print("[Z_TEST] grid_expanded: ", new_size)
+
 
 # -----------------------------------------------------------------------------
 # SaveManager test
@@ -302,6 +320,67 @@ func _test_audio_manager() -> void:
 	print("Play bgm/menu: ", ok_bgm, " | Play sfx/click: ", ok_sfx)
 	if am.has_method("get_debug_info"):
 		print("Audio debug: ", am.get_debug_info())
+
+func _test_grid_validator() -> void:
+	var gv: Node = _S("GridValidator")
+	if not gv:
+		print("GridValidator not available")
+		return
+
+	# Inside-fence small area
+	var pos_in: Vector2i = Vector2i(1, 1)
+	var size_in: Vector2i = Vector2i(2, 2)
+	var can_in: bool = false
+	if gv.has_method("can_place_at"):
+		can_in = gv.can_place_at(pos_in, size_in)
+	print("can_place_at ", pos_in, " size ", size_in, ": ", can_in)
+
+	# Outside bounds area
+	var pos_out: Vector2i = Vector2i(-1, 0)
+	var size_out: Vector2i = Vector2i(1, 1)
+	var can_out: bool = false
+	if gv.has_method("can_place_at"):
+		can_out = gv.can_place_at(pos_out, size_out)
+	print("can_place_at ", pos_out, " size ", size_out, ": ", can_out)
+
+	# get_area_tiles sanity
+	if gv.has_method("get_area_tiles"):
+		var tiles: Array[Vector2i] = gv.get_area_tiles(Vector2i(0, 0), Vector2i(2, 3))
+		print("get_area_tiles (0,0) size (2,3): count=", tiles.size(), " -> ", tiles)
+
+func _test_grid_expand_and_chunks() -> void:
+	var gm: Node = _S("GridManager")
+	var gv: Node = _S("GridValidator")
+	if not gm:
+		print("GridManager not available")
+		return
+
+	# Connect signals if not already
+	if gm.has_signal("chunk_dirty") and not gm.is_connected("chunk_dirty", Callable(self, "_on_chunk_dirty")):
+		gm.chunk_dirty.connect(_on_chunk_dirty)
+	if gm.has_signal("grid_expanded") and not gm.is_connected("grid_expanded", Callable(self, "_on_grid_expanded")):
+		gm.grid_expanded.connect(_on_grid_expanded)
+
+	# Expand from default to 20x20 to create multiple chunks
+	if gm.has_method("expand_grid"):
+		gm.expand_grid(Vector2i(20, 20))
+
+	# Verify fence/validator reflect the new size (edge inside, outside fails)
+	if gv and gv.has_method("can_place_at"):
+		var can_edge: bool = gv.can_place_at(Vector2i(19, 19), Vector2i(1, 1))
+		var can_outside: bool = gv.can_place_at(Vector2i(20, 20), Vector2i(1, 1))
+		print("edge inside (19,19): ", can_edge, " | outside (20,20): ", can_outside)
+
+	# Trigger dirty chunks in two different chunks
+	# CHUNK_SIZE=10 → (2,2) in chunk (0,0), (11,3) in chunk (1,0)
+	if gm.has_method("till_soil"):
+		gm.till_soil(Vector2i(2, 2))
+		gm.till_soil(Vector2i(11, 3))
+
+	# If helper exists, query chunk dirty status after actions
+	if gm.has_method("is_chunk_dirty"):
+		print("chunk (0,0) dirty: ", gm.is_chunk_dirty(Vector2i(0, 0)))
+		print("chunk (1,0) dirty: ", gm.is_chunk_dirty(Vector2i(1, 0)))
 
 
 # -----------------------------------------------------------------------------

@@ -297,7 +297,7 @@ func _execute_action(action: PlayerAction) -> Dictionary:
 		
 		"test_soil":
 			# Get tile info
-			var tile: GridManager.FarmTile = grid_manager.get_tile(action.target_position)
+			var tile: FarmTileData = grid_manager.get_tile(action.target_position)
 			if tile:
 				result["success"] = true
 				result["tile_info"] = tile.to_dict()
@@ -316,8 +316,8 @@ func _inspect_tile(pos: Vector2i) -> Dictionary:
 	"""Get detailed information about a tile"""
 	if not grid_manager:
 		return {"success": false, "reason": "GridManager not available"}
-	
-	var tile: GridManager.FarmTile = grid_manager.get_tile(pos)
+
+	var tile: FarmTileData = grid_manager.get_tile(pos)
 	if not tile:
 		return {"success": false, "reason": "No tile at position"}
 	
@@ -332,8 +332,9 @@ func _inspect_tile(pos: Vector2i) -> Dictionary:
 		info["description"] = "Tile has %s crop" % tile.crop.get("type", "unknown")
 	elif tile.has_machine():
 		info["description"] = "Tile has %s machine" % tile.machine.get("type", "unknown")
-	elif tile.is_tilled:
-		info["description"] = "Tilled soil (water: %.0f%%)" % (tile.water_level * 100)
+	elif tile.state == FarmTileData.TileState.TILLED or tile.state == FarmTileData.TileState.WATERED:
+		var state_label: String = "Watered" if tile.state == FarmTileData.TileState.WATERED else "Tilled"
+		info["description"] = "%s soil (water: %.0f%%)" % [state_label, tile.water_content]
 	else:
 		info["description"] = "Untilled soil"
 	
