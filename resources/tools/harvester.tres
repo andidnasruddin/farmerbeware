@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="Tool" load_steps=2 format=3 uid="uid://d4kppejcsoauk"]
+
+[ext_resource type="Script" uid="uid://cltkyvbwppt1l" path="res://scripts/tool/Tool.gd" id="1_qy6q8"]
+
+[resource]
+script = ExtResource("1_qy6q8")
+id = "harvester"
+display_name = "Harvester"
+action_type = "harvest"
+stamina_cost = 4.0
+uses_per_refill = 0
+area = Vector2i(1, 1)
+range = 1
+params = {}
+metadata/_custom_type_script = "uid://cltkyvbwppt1l"

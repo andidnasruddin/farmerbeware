@@ -1,0 +1,51 @@
+[gd_scene load_steps=16 format=3 uid="uid://cvt2frmd0nnde"]
+
+[ext_resource type="Script" uid="uid://cbwe2xml0bvan" path="res://scripts/player/PlayerController.gd" id="1_gfjak"]
+[ext_resource type="Script" uid="uid://b3uj5hpg0luxx" path="res://scripts/player/PlayerMovement.gd" id="1_wr5hl"]
+[ext_resource type="Resource" uid="uid://7ct64rsd4pvr" path="res://resources/player/player_stats.tres" id="2_524rm"]
+[ext_resource type="Resource" uid="uid://ci25kvbr6pyhq" path="res://resources/player/movement_config.tres" id="3_tpg5x"]
+[ext_resource type="Script" uid="uid://dqr81gc2ksoea" path="res://scripts/player/PlayerInventory.gd" id="4_tpg5x"]
+[ext_resource type="Script" uid="uid://cltkyvbwppt1l" path="res://scripts/tool/Tool.gd" id="5_180ig"]
+[ext_resource type="Script" uid="uid://cv4nw8vk4qhbg" path="res://scripts/tool/ToolHoe.gd" id="6_20koh"]
+[ext_resource type="Resource" uid="uid://kergkcmi7b1q" path="res://resources/tools/seed_bag.tres" id="7_ov1oi"]
+[ext_resource type="Resource" uid="uid://bwon8sed0kiwf" path="res://resources/tools/watering_can.tres" id="8_rn7t0"]
+[ext_resource type="Resource" uid="uid://diyoirmvmc3" path="res://resources/tools/fertilizer.tres" id="9_8qjgm"]
+[ext_resource type="Resource" uid="uid://d4kppejcsoauk" path="res://resources/tools/harvester.tres" id="10_ejd4k"]
+[ext_resource type="Resource" uid="uid://bj87m4h8a3mnp" path="res://resources/tools/soil_test.tres" id="11_2xrq6"]
+[ext_resource type="Texture2D" uid="uid://ccv77qfcge74q" path="res://icon.svg" id="13_20koh"]
+
+[sub_resource type="Resource" id="Resource_ov1oi"]
+script = ExtResource("6_20koh")
+id = "hoe"
+display_name = "Hoe"
+action_type = "till"
+stamina_cost = 5.0
+uses_per_refill = 0
+area = Vector2i(1, 1)
+range = 1
+params = {}
+metadata/_custom_type_script = "uid://cv4nw8vk4qhbg"
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_gfjak"]
+
+[node name="Player" type="CharacterBody2D"]
+z_index = 100
+script = ExtResource("1_gfjak")
+stats = ExtResource("2_524rm")
+movement_config = ExtResource("3_tpg5x")
+
+[node name="Inventory" type="Node" parent="."]
+script = ExtResource("4_tpg5x")
+tools = Array[ExtResource("5_180ig")]([SubResource("Resource_ov1oi"), ExtResource("7_ov1oi"), ExtResource("8_rn7t0"), ExtResource("9_8qjgm"), ExtResource("10_ejd4k"), ExtResource("11_2xrq6")])
+
+[node name="Movement" type="Node" parent="."]
+script = ExtResource("1_wr5hl")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+shape = SubResource("RectangleShape2D_gfjak")
+
+[node name="Visuals" type="Node2D" parent="."]
+
+[node name="Sprite2D" type="Sprite2D" parent="."]
+scale = Vector2(0.1, 0.1)
+texture = ExtResource("13_20koh")

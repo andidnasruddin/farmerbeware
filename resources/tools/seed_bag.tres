@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="Tool" load_steps=2 format=3 uid="uid://kergkcmi7b1q"]
+
+[ext_resource type="Script" uid="uid://cltkyvbwppt1l" path="res://scripts/tool/Tool.gd" id="1_r1opf"]
+
+[resource]
+script = ExtResource("1_r1opf")
+id = "seed_bag"
+display_name = "Seed Bag"
+action_type = "plant"
+stamina_cost = 2.0
+uses_per_refill = 0
+area = Vector2i(1, 1)
+range = 1
+params = {}
+metadata/_custom_type_script = "uid://cltkyvbwppt1l"

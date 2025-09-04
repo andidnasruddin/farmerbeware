@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="Tool" load_steps=2 format=3 uid="uid://bwon8sed0kiwf"]
+
+[ext_resource type="Script" uid="uid://cltkyvbwppt1l" path="res://scripts/tool/Tool.gd" id="1_ylvcl"]
+
+[resource]
+script = ExtResource("1_ylvcl")
+id = "watering_can"
+display_name = "Basic Watering Can"
+action_type = "water"
+stamina_cost = 3.0
+uses_per_refill = 5
+area = Vector2i(3, 1)
+range = 1
+params = {}
+metadata/_custom_type_script = "uid://cltkyvbwppt1l"

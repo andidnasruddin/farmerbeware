@@ -15,6 +15,7 @@ class PlayerAction:
 	var timestamp: float = 0.0
 	var is_valid: bool = false
 	var validation_reason: String = ""
+
 	
 	func _init(p_id: int, action: String, pos: Vector2i, tool: String = "") -> void:
 		player_id = p_id
@@ -37,6 +38,11 @@ signal input_mode_changed(mode: String)
 # ============================================================================
 var grid_manager: Node = null
 var grid_validator: Node = null
+
+# Pipeline members
+var _target_calc: TargetCalculator = null
+var _action_validator: ActionValidator = null
+var _action_handlers: ActionHandlers = null
 
 # Input state
 var input_enabled: bool = true
@@ -63,6 +69,9 @@ var tool_inputs: Dictionary = {
 var input_cooldown: float = 0.1  # Minimum time between actions
 var last_action_time: float = 0.0
 
+var input_queue: InteractionQueue = null
+const INPUT_QUEUE_WINDOW_MS: int = 100
+
 # ============================================================================
 # INITIALIZATION
 # ============================================================================
@@ -74,34 +83,159 @@ func _ready() -> void:
 	grid_manager = GridManager
 	grid_validator = GridValidator
 	
-	if not grid_manager:
-		print("[InteractionSystem] WARNING: GridManager not found!")
-	else:
+	if grid_manager:
 		print("[InteractionSystem] GridManager connected")
-		
-	if not grid_validator:
-		print("[InteractionSystem] WARNING: GridValidator not found!")
 	else:
-		print("[InteractionSystem] GridValidator connected")
+		print("[InteractionSystem] WARNING: GridManager not found!")
 	
-	# Set up input handling
-	_setup_input_map()
+	if grid_validator:
+		print("[InteractionSystem] GridValidator connected")
+	else:
+		print("[InteractionSystem] WARNING: GridValidator not found!")
+	
+	# Input mapping (create or ensure actions exist)
+	_ensure_input_map()
+	
+	# Pipeline
+	_target_calc = TargetCalculator.new()
+	_action_validator = ActionValidator.new()
+	_action_handlers = ActionHandlers.new()
+	
+	# Queue
+	input_queue = InteractionQueue.new()
+	input_queue.max_size = 3
+	input_queue.window_ms = INPUT_QUEUE_WINDOW_MS
+	add_child(input_queue)
 	
 	# Register with GameManager
 	if GameManager:
 		GameManager.register_system("InteractionSystem", self)
 		print("[InteractionSystem] Registered with GameManager")
-		
-		# Connect to GameManager signals
 		GameManager.state_changed.connect(_on_game_state_changed)
 	
+	set_process(true)
 	print("[InteractionSystem] Initialization complete!")
+
+func _process(_delta: float) -> void:
+	if input_queue and not input_queue.is_empty():
+		input_queue.drain_to(Callable(self, "_process_queued_action"))
+
+func _process_queued_action(entry: Dictionary) -> bool:
+	var data: Dictionary = entry.get("data", {}) as Dictionary
+	var origin: Vector2i = data.get("pos", Vector2i.ZERO)
+	var tool_name: String = String(data.get("tool", selected_tool))
+	var action_type: String = String(entry.get("type", ""))
+
+	if action_type.is_empty():
+		return false
+
+	# For now, choose facing right by default; later we can pass player facing
+	# 1) Targets
+	var facing: Vector2i = data.get("facing", Vector2i(1, 0))
+	var targets: Array[Vector2i] = _target_calc.compute_positions(tool_name, origin, facing)
+	if targets.is_empty():
+		return false
+
+	# 2) Validate per tile via GridValidator
+	var vres: Dictionary = _action_validator.validate(tool_name, targets, grid_validator, 0)
+	var valid: bool = bool(vres.get("valid", false))
+	if not valid:
+		var reason: String = String(vres.get("reason", "invalid"))
+		print("[InteractionSystem] Action failed: %s" % reason)
+		return false
+	var valid_positions: Array[Vector2i] = vres.get("valid_positions", []) as Array[Vector2i]
+
+	# 3) Execute via ActionHandlers -> GridManager
+	var tool_params: Dictionary = {}
+	match tool_name:
+		"watering_can":
+			tool_params["water_add"] = 25
+		"seed_bag":
+			tool_params["seed_id"] = "lettuce"
+		"fertilizer":
+			tool_params["npk_amount"] = 10
+		_:
+			pass
+
+	var hres: Dictionary = _action_handlers.perform(action_type, tool_name, valid_positions, grid_manager, tool_params, 0)
+	var success: bool = bool(hres.get("success", false))
+	if success:
+		# Emit success like the non-queued path
+		var pa: PlayerAction = PlayerAction.new(0, action_type, origin, tool_name)
+		action_executed.emit(pa, hres)
+
+		# Friendly logs (typed to avoid Variant inference)
+		var details: Dictionary = hres.get("details", {}) as Dictionary
+		match action_type:
+			"test_soil":
+				var t: Dictionary = details.get("tile_info", {}) as Dictionary
+				var ph: float = float(t.get("ph_level", 7.0))
+				var h2o: float = float(t.get("water_content", 0.0))
+				var n: float = float(t.get("nitrogen", 0.0))
+				var p: float = float(t.get("phosphorus", 0.0))
+				var k: float = float(t.get("potassium", 0.0))
+				var om: float = float(t.get("organic_matter", 0.0))
+				print("[SoilTest] pos=%s pH=%.2f H2O=%.0f%% N=%.0f P=%.0f K=%.0f OM=%.0f" % [
+					origin, ph, h2o, n, p, k, om
+				])
+			"fertilize":
+				var fertilized: int = int(details.get("fertilized", 0))
+				var npk_amount: int = int(tool_params.get("npk_amount", 10))
+				print("[Fertilizer] Applied to %d tiles (+%d NPK)" % [fertilized, npk_amount])
+			_:
+				print("[InteractionSystem] Action executed (queued): %s at %s -> %s" % [
+					action_type, origin, details
+				])
+		return true
+
+	# Failure
+	print("[InteractionSystem] Action execution failed: %s" % String(hres.get("reason", "unknown")))
+	return false
+
 
 func _setup_input_map() -> void:
 	"""Setup input action mappings if they don't exist"""
 	# TODO: This would normally be done in the Input Map
 	# For now, we'll handle it programmatically in _input()
 	print("[InteractionSystem] Input mapping configured")
+
+func _ensure_input_map() -> void:
+	# Movement
+	_ensure_action("move_up", [KEY_W, KEY_UP])
+	_ensure_action("move_down", [KEY_S, KEY_DOWN])
+	_ensure_action("move_left", [KEY_A, KEY_LEFT])
+	_ensure_action("move_right", [KEY_D, KEY_RIGHT])
+
+	# Actions
+	_ensure_action("action_primary", [KEY_E, KEY_SPACE])
+	_ensure_action("action_throw", [KEY_Q])
+	_ensure_action("sprint", [KEY_SHIFT])
+	_ensure_action("inspect", [KEY_TAB])
+	_ensure_action("emote_wheel", [KEY_F])
+
+	# Tool hotkeys 1-7
+	_ensure_action("tool_1", [KEY_1])
+	_ensure_action("tool_2", [KEY_2])
+	_ensure_action("tool_3", [KEY_3])
+	_ensure_action("tool_4", [KEY_4])
+	_ensure_action("tool_5", [KEY_5])
+	_ensure_action("tool_6", [KEY_6])
+	_ensure_action("tool_7", [KEY_7])
+
+func _ensure_action(name: String, keys: Array[int]) -> void:
+	if not InputMap.has_action(name):
+		InputMap.add_action(name)
+	for code in keys:
+		var ev := InputEventKey.new()
+		ev.keycode = code
+		if not _has_event(name, ev):
+			InputMap.action_add_event(name, ev)
+
+func _has_event(action: String, ev: InputEvent) -> bool:
+	for e in InputMap.action_get_events(action):
+		if e is InputEventKey and ev is InputEventKey and e.keycode == ev.keycode:
+			return true
+	return false
 
 # ============================================================================
 # INPUT HANDLING
@@ -123,7 +257,9 @@ func _input(event: InputEvent) -> void:
 		_handle_movement_input(event)
 
 func _handle_tool_selection(event: InputEventKey) -> void:
-	"""Handle tool selection via keyboard"""
+	if current_input_mode != "farm":
+		return
+		"""Handle tool selection via keyboard"""
 	match event.keycode:
 		KEY_1:
 			select_tool("hoe")
@@ -175,23 +311,29 @@ func _handle_movement_input(event: InputEventKey) -> void:
 		var new_pos: Vector2i = target_position + movement_delta
 		_request_player_movement(new_pos)
 
+func _enqueue_action(action_type: String, grid_pos: Vector2i, tool_name: String) -> void:
+	if input_queue:
+		input_queue.enqueue(action_type, {
+			"pos": grid_pos,
+			"tool": tool_name,
+			"player_id": 0
+		})
+
 # ============================================================================
 # ACTION PROCESSING
 # ============================================================================
 func _perform_primary_action(grid_pos: Vector2i) -> void:
-	"""Perform the primary action for the selected tool"""
+	"""Perform the primary action for the selected tool (queued)"""
 	# Check cooldown
 	var current_time: float = Time.get_unix_time_from_system()
 	if current_time - last_action_time < input_cooldown:
 		return
-	
+
 	var action_type: String = _get_primary_action_for_tool(selected_tool)
 	if action_type.is_empty():
 		return
-	
-	var action: PlayerAction = PlayerAction.new(0, action_type, grid_pos, selected_tool)  # Player 0 for now
-	_process_action(action)
-	
+
+	_enqueue_action(action_type, grid_pos, selected_tool)
 	last_action_time = current_time
 
 func _perform_secondary_action(grid_pos: Vector2i) -> void:
@@ -430,3 +572,15 @@ func simulate_action(action_type: String, pos: Vector2i) -> Dictionary:
 	var action: PlayerAction = PlayerAction.new(0, action_type, pos, selected_tool)
 	_process_action(action)
 	return {"action_processed": true, "position": pos}
+
+func request_primary_action(tool_name: String, grid_pos: Vector2i, player_id: int = 0, facing: Vector2i = Vector2i(1, 0)) -> void:
+	var action_type: String = _get_primary_action_for_tool(tool_name)
+	if action_type.is_empty():
+		return
+	if input_queue:
+		input_queue.enqueue(action_type, {
+			"pos": grid_pos,
+			"tool": tool_name,
+			"player_id": player_id,
+			"facing": facing
+		})

@@ -203,3 +203,52 @@ Input buffering prevents dropped inputs
 Network uses client-prediction with host authority
 Stamina limits sprint but not basic actions
 Heavy items require 2 players (co-op mechanic)
+
+Player Resources
+Files: res://resources/player/player_stats.tres, res://resources/player/movement_config.tres
+Purpose: Default stats (stamina/speed) + physics config
+Done when: PlayerController reads these via exported Resource refs
+Input Map + Buffer
+Files: update InputMap in InteractionSystem; add res://scripts/interaction/InteractionQueue.gd
+Purpose: Map movement (WASD/Arrows) + actions (E/Space/Q/Shift/1–7/Tab/F), 3‑slot FIFO buffer with 100ms window
+Done when: Queue enqueues on input and InteractionSystem drains in order; clear on success
+Player Controller + Movement
+Files: res://scripts/player/PlayerController.gd, res://scripts/player/PlayerMovement.gd, scene res://scenes/player/Player.tscn
+Purpose: CharacterBody2D with IDLE/MOVING/SPRINTING/CARRYING/USING_TOOL states; stamina consumption for sprint; basic collision
+Done when: Player can move/sprint; state changes occur; stamina UI updates (next step)
+Player Inventory + Tool Model
+Files: res://scripts/player/PlayerInventory.gd, res://scripts/tools/Tool.gd, resource files under res://resources/tools/
+Purpose: Data‑driven tools (not scenes): name, icon, stamina cost, area/range, usage params; inventory swaps tools
+Done when: Current tool swaps via hotkeys; tool data accessible in controller
+Action Pipeline (Target → Validate → Handle)
+Files: res://scripts/interaction/TargetCalculator.gd, res://scripts/interaction/ActionValidator.gd, res://scripts/interaction/ActionHandlers.gd
+Purpose: Decouple targeting (grid + area), permission checks (GridValidator), and concrete effects (GridManager)
+Done when: Each tool path uses the pipeline (till/water/plant/harvest/fertilizer/soil_test) and returns structured results
+Concrete Tools (Base + Implementations)
+Files: res://scripts/tools/ToolHoe.gd, ToolWateringCan.gd, ToolSeedBag.gd, ToolHarvester.gd, ToolFertilizer.gd, ToolSoilTest.gd
+Purpose: Thin wrappers that define per‑tool parameters and call the action pipeline
+Done when: Tools execute correctly against GridSystem: till soil, water 3×1, plant on tilled, harvest mature, fertilize stub, soil test snapshot
+InteractionSystem Integration
+Files: update res://scripts/managers/InteractionSystem.gd
+Purpose: Route ALL actions through InteractionQueue → TargetCalculator → ActionValidator → ActionHandlers; emit action_requested/validated/executed/failed
+Done when: The same console actions you run today route via the pipeline; logs reflect the new flow
+Visual Feedback (PlayerVisuals + ToolDisplay + ToolPreview)
+Files: res://scenes/player/PlayerVisuals.tscn, ToolDisplay.tscn, res://scenes/tools/ToolPreview.tscn, ToolEffects.tscn
+Purpose: Show tool overlay/ghost and area highlight; optional particles on success
+Done when: Aimed cell/area shows colored preview (green=valid/red=invalid); optional particles fire on success
+UI Elements (Stamina + Tool Selector + Emote Wheel)
+Files: res://scenes/ui/StaminaBar.tscn, ToolSelector.tscn, EmoteWheel.tscn
+Purpose: Display stamina and current tool; emote wheel stubbed (opens/closes)
+Done when: Stamina updates as you sprint/use tools; tool selector reflects hotkey swaps
+Carry System (Pickup/Throw)
+Files: res://scripts/carry/CarrySystem.gd, ThrowPhysics.gd, Item.gd, scene res://scenes/player/CarryPosition.tscn
+Purpose: Pick up item, reduced speed while carrying, throw with arc; disable tools while carrying
+Done when: Player picks/throws a dummy item; movement modifiers applied; tools disabled while carrying
+Player Animator + Controller Glue
+Files: res://scripts/player/PlayerAnimator.gd, sprites under res://assets/sprites/player/, scene PlayerVisuals.tscn
+Purpose: 8‑direction idle/walk/run/tool/carry; tie into controller states and tool usage
+Done when: Animations change with movement and tool use; name tag optional
+Multiplayer Stub (Prediction + RPCs)
+Files: res://scripts/player/PlayerNetwork.gd
+Purpose: Client prediction for movement/tool previews; host authoritative validation via InteractionSystem; RPCs per doc
+Done when: Minimal RPCs exist (update_position unreliable, perform_action reliable); code paths stubbed to NetworkManager

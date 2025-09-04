@@ -1,8 +1,9 @@
-[gd_scene load_steps=4 format=3 uid="uid://do3cvd62fojx4"]
+[gd_scene load_steps=5 format=3 uid="uid://do3cvd62fojx4"]
 
 [ext_resource type="PackedScene" uid="uid://c3guexuc8edxo" path="res://scenes/visual/TileMapRenderer.tscn" id="1_0psxa"]
 [ext_resource type="Script" uid="uid://b76uiywyx2onf" path="res://scenes/debug/GridDebugOverlay.gd" id="1_olcc5"]
 [ext_resource type="PackedScene" uid="uid://jayi2juk7q56" path="res://scenes/visual/ChunkRenderer.tscn" id="2_olcc5"]
+[ext_resource type="PackedScene" uid="uid://cvt2frmd0nnde" path="res://scenes/player/Player.tscn" id="4_xrkjl"]
 
 [node name="GridSystem" type="Node2D"]
 
@@ -12,3 +13,5 @@ script = ExtResource("1_olcc5")
 [node name="TileMapRenderer" parent="." instance=ExtResource("1_0psxa")]
 
 [node name="ChunkRenderer" parent="." instance=ExtResource("2_olcc5")]
+
+[node name="Player" parent="." instance=ExtResource("4_xrkjl")]

@@ -1,0 +1,20 @@
+[gd_resource type="Resource" script_class="PlayerStats" load_steps=2 format=3 uid="uid://7ct64rsd4pvr"]
+
+[ext_resource type="Script" uid="uid://ns8x51c3gidf" path="res://scripts/player/PlayerStats.gd" id="1_oupy4"]
+
+[resource]
+script = ExtResource("1_oupy4")
+stamina_max = 100.0
+stamina_recovery_per_sec = 10.0
+sprint_stamina_cost_per_sec = 15.0
+carry_speed_multiplier = 0.75
+sprint_enabled = true
+tool_stamina_costs = {
+"fertilizer": 3.0,
+"harvester": 4.0,
+"hoe": 5.0,
+"seed_bag": 2.0,
+"soil_test": 0.0,
+"watering_can": 3.0
+}
+metadata/_custom_type_script = "uid://ns8x51c3gidf"

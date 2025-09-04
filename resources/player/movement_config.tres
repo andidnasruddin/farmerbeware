@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="MovementConfig" load_steps=2 format=3 uid="uid://ci25kvbr6pyhq"]
+
+[ext_resource type="Script" uid="uid://j024qmtbbadw" path="res://scripts/player/MovementConfig.gd" id="1_y1kga"]
+
+[resource]
+script = ExtResource("1_y1kga")
+base_move_speed = 300.0
+sprint_multiplier = 1.5
+acceleration = 2000.0
+deceleration = 2500.0
+friction = 0.0
+deadzone = 0.2
+snap_to_cardinal = false
+metadata/_custom_type_script = "uid://j024qmtbbadw"

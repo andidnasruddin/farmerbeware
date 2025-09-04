@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="ToolHoe" load_steps=2 format=3 uid="uid://ddgf508r30tw1"]
+
+[ext_resource type="Script" uid="uid://cv4nw8vk4qhbg" path="res://scripts/tool/ToolHoe.gd" id="1_je3il"]
+
+[resource]
+script = ExtResource("1_je3il")
+id = ""
+display_name = ""
+action_type = ""
+stamina_cost = 0.0
+uses_per_refill = 0
+area = Vector2i(1, 1)
+range = 1
+params = {}
+metadata/_custom_type_script = "uid://cv4nw8vk4qhbg"

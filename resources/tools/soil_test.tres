@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="Tool" load_steps=2 format=3 uid="uid://bj87m4h8a3mnp"]
+
+[ext_resource type="Script" uid="uid://cltkyvbwppt1l" path="res://scripts/tool/Tool.gd" id="1_xs08m"]
+
+[resource]
+script = ExtResource("1_xs08m")
+id = "soil_test"
+display_name = "Soil Tester"
+action_type = "test_soil"
+stamina_cost = 0.0
+uses_per_refill = 0
+area = Vector2i(1, 1)
+range = 1
+params = {}
+metadata/_custom_type_script = "uid://cltkyvbwppt1l"
