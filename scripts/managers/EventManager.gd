@@ -333,7 +333,7 @@ func _create_weather_event(weather: WeatherType) -> GameEvent:
 	"""Create a weather event"""
 	var event: GameEvent = GameEvent.new("weather_" + _weather_to_string(weather).to_lower(), EventType.WEATHER)
 	event.weather_type = weather
-	event.duration = randf_range(60.0, 180.0)  # 1-3 minutes
+	event.duration = randf_range(120.0, 300.0)	# 2–5 minutes
 	
 	match weather:
 		WeatherType.SUNNY:

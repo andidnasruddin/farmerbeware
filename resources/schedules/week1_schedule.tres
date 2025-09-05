@@ -1,0 +1,32 @@
+[gd_resource type="Resource" script_class="EventSchedule" load_steps=6 format=3 uid="uid://60qwrtulnl8"]
+
+[ext_resource type="Script" uid="uid://dhq441qs0vpnb" path="res://scripts/events/ScheduleEntry.gd" id="1_xwnuv"]
+[ext_resource type="Script" uid="uid://b3nv13tayrpxb" path="res://scripts/events/EventSchedule.gd" id="2_13d7x"]
+
+[sub_resource type="Resource" id="Resource_70dlk"]
+script = ExtResource("1_xwnuv")
+hour = 6.1
+event_type = "WEATHER"
+id = "rain"
+chance = 1.0
+metadata/_custom_type_script = "uid://dhq441qs0vpnb"
+
+[sub_resource type="Resource" id="Resource_13d7x"]
+script = ExtResource("1_xwnuv")
+hour = 6.1
+event_type = "CONTRACT"
+id = "flash"
+chance = 1.0
+metadata/_custom_type_script = "uid://dhq441qs0vpnb"
+
+[sub_resource type="Resource" id="Resource_1a5wh"]
+script = ExtResource("1_xwnuv")
+hour = 6.2
+event_type = "WEATHER"
+id = "sunny"
+chance = 1.0
+metadata/_custom_type_script = "uid://dhq441qs0vpnb"
+
+[resource]
+script = ExtResource("2_13d7x")
+entries = Array[ExtResource("1_xwnuv")]([SubResource("Resource_70dlk"), SubResource("Resource_13d7x"), SubResource("Resource_1a5wh")])

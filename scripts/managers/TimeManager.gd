@@ -66,6 +66,8 @@ var interaction_system: Node = null
 # ============================================================================
 func _ready() -> void:
 	name = "TimeManager"
+	process_mode = Node.PROCESS_MODE_ALWAYS
+	set_process(true)
 	print("[TimeManager] Initializing as Autoload #5...")
 	
 	# Get references to other systems
@@ -80,9 +82,24 @@ func _ready() -> void:
 		GameManager.state_changed.connect(_on_game_state_changed)
 		print("[TimeManager] Registered with GameManager")
 	
+	if get_tree().root.get_node_or_null("/root/DayNightCycle") == null:
+		var dnc: DayNightCycle = preload("res://scripts/time/DayNightCycle.gd").new()
+		get_tree().root.add_child(dnc)
+	
+	var ui := get_node_or_null("/root/UIManager")
+	if ui and ui.has_method("register_overlay"):
+		ui.register_overlay("countdown", "res://scenes/time/CountdownOverlay.tscn")
+
 	# Set up time system
 	_setup_time_system()
-	
+	_ensure_time_inputs()
+	call_deferred("_register_ui_overlays")
+	call_deferred("_connect_network_time_events")
+	call_deferred("_spawn_daynightcycle_if_missing")
+	call_deferred("_spawn_event_scheduler_if_missing")
+	call_deferred("_spawn_difficulty_scaler_if_missing")
+	if not is_connected("phase_changed", Callable(self, "_on_phase_local_changed")):
+		phase_changed.connect(_on_phase_local_changed)
 	print("[TimeManager] Initialization complete!")
 
 func _setup_time_system() -> void:
@@ -102,42 +119,54 @@ func _setup_time_system() -> void:
 func _process(delta: float) -> void:
 	if is_paused or GameManager.current_state != GameManager.GameState.PLAYING:
 		return
-	
-	# Apply game speed
+
+	# Only flow time during FARMING phases (MORNING/MIDDAY/EVENING)
+	if not _is_farming_phase(current_phase):
+		return
+
 	var adjusted_delta: float = delta * game_speed
-	
-	# Update timers
 	phase_time_elapsed += adjusted_delta
 	total_game_time += adjusted_delta
-	
-	# Emit time tick for other systems
+
 	time_tick.emit(phase_time_elapsed, current_phase)
-	
-	# Check for phase warnings
+
 	_check_phase_warnings()
-	
-	# Check for phase advancement
+
 	if auto_advance and _should_advance_phase():
 		_advance_phase()
 
 func _check_phase_warnings() -> void:
-	"""Check if we should emit countdown warnings"""
+	# Warnings apply only while farming
+	if not _is_farming_phase(current_phase):
+		return
 	var phase_duration: float = phase_durations[current_phase]
 	var time_remaining: float = phase_duration - phase_time_elapsed
-	
 	for warning_time in phase_warnings:
 		if time_remaining <= warning_time and time_remaining > warning_time - 1.0:
 			countdown_warning.emit(warning_time)
 			break
 
 func _should_advance_phase() -> bool:
-	"""Check if current phase should advance to the next"""
+	# Never auto-advance from PLANNING
+	if current_phase == TimePhase.PLANNING:
+		return false
 	var phase_duration: float = phase_durations[current_phase]
 	return phase_time_elapsed >= phase_duration
 
 # ============================================================================
 # PHASE MANAGEMENT
 # ============================================================================
+func _register_ui_overlays() -> void:
+	var ui = get_node_or_null("/root/UIManager")
+	if ui == null:
+		await get_tree().process_frame
+		ui = get_node_or_null("/root/UIManager")
+	if ui and ui.has_method("register_overlay"):
+		ui.register_overlay("countdown", "res://scenes/time/CountdownOverlay.tscn")
+		ui.register_overlay("phase_transition", "res://scenes/time/PhaseTransition.tscn")
+		ui.register_overlay("time_display", "res://scenes/time/TimeDisplay.tscn")
+		ui.register_overlay("calendar", "res://scenes/time/CalendarUI.tscn")
+
 func _advance_phase() -> void:
 	"""Advance to the next time phase"""
 	var old_phase: TimePhase = current_phase
@@ -206,6 +235,22 @@ func _on_phase_entered(phase: TimePhase) -> void:
 		
 		TimePhase.TRANSITION:
 			print("[TimeManager] Transition phase - Preparing next day")
+
+# ============================================================================
+# PUBLIC API - DAY START
+# ============================================================================
+func start_day() -> void:
+	if current_phase != TimePhase.PLANNING:
+		return
+	if GameManager and GameManager.current_state != GameManager.GameState.PLAYING:
+		GameManager.change_state(GameManager.GameState.PLAYING)
+		await get_tree().process_frame
+	var old_phase: TimePhase = current_phase
+	current_phase = TimePhase.MORNING
+	phase_time_elapsed = 0.0
+	print("[TimeManager] Phase change: %s -> %s" % [_phase_to_string(old_phase), _phase_to_string(current_phase)])
+	phase_changed.emit(old_phase, current_phase)
+	_on_phase_entered(current_phase)
 
 # ============================================================================
 # DAY MANAGEMENT
@@ -286,8 +331,26 @@ func toggle_pause() -> void:
 		pause_time()
 
 # ============================================================================
-# PHASE CONTROL (for testing/debugging)
+# PHASE CONTROL
 # ============================================================================
+func _on_phase_local_changed(from_phase: int, to_phase: int) -> void:
+	_play_phase_transition(from_phase, to_phase)
+	if _is_host():
+		_broadcast_phase_change(from_phase, to_phase)
+
+func _play_phase_transition(from_phase: int, to_phase: int) -> void:
+	var ui = get_node_or_null("/root/UIManager")
+	if ui and ui.has_method("show_overlay"):
+		ui.show_overlay("phase_transition")
+	var overlay = get_node_or_null("/root/UIManager/UILayer/Overlays/PhaseTransition")
+	if overlay and overlay.has_method("play_transition"):
+		overlay.play_transition(from_phase, to_phase)
+
+func _broadcast_phase_change(from_phase: int, to_phase: int) -> void:
+	var nm = get_node_or_null("/root/NetworkManager")
+	if nm and nm.has_method("send_event"):
+		nm.send_event("time/phase_change", {"from": from_phase, "to": to_phase, "day": current_day})
+
 func force_advance_phase() -> void:
 	"""Manually advance to next phase (debug)"""
 	print("[TimeManager] Forcing phase advancement")
@@ -333,10 +396,12 @@ func check_failure_conditions() -> bool:
 # GAME STATE INTEGRATION
 # ============================================================================
 func _on_game_state_changed(from_state: int, to_state: int) -> void:
-	"""Handle GameManager state changes"""
 	match to_state:
 		GameManager.GameState.PLAYING:
 			resume_time()
+			var ui = get_node_or_null("/root/UIManager")
+			if ui and ui.has_method("show_overlay"):
+				ui.show_overlay("time_display")
 		GameManager.GameState.PAUSED:
 			pause_time()
 		GameManager.GameState.MENU, GameManager.GameState.LOBBY:
@@ -370,6 +435,99 @@ func get_day_in_week() -> int:
 	return ((current_day - 1) % 7) + 1
 
 # ============================================================================
+# NETWORK TIME EVENTS
+# ============================================================================
+
+# Call after ready
+func _connect_network_time_events() -> void:
+	var nm = get_node_or_null("/root/NetworkManager")
+	if nm:
+		if not nm.is_connected("event_received", Callable(self, "_on_net_time_event")):
+			nm.event_received.connect(_on_net_time_event)
+	else:
+		# Retry next frame until NetworkManager is live
+		call_deferred("_connect_network_time_events")
+
+func _on_net_time_event(event_name: String, payload: Dictionary, _from_peer: int) -> void:
+	# Hosts ignore their own network schedule/time events
+	if _is_host():
+		return
+	match event_name:
+		"time/countdown_start":
+			var secs: int = int(payload.get("seconds", 10))
+			_show_and_start_countdown(secs)
+		"time/countdown_cancel":
+			_cancel_countdown_local()
+		"time/countdown_finish":
+			_finish_countdown_local()
+		"time/phase_change":
+			var from_phase: int = int(payload.get("from", TimeManager.TimePhase.PLANNING))
+			var to_phase: int = int(payload.get("to", TimeManager.TimePhase.PLANNING))
+			_play_phase_transition(from_phase, to_phase)
+		"sched/flash":
+			# Mirror host: ensure EventManager announces the flash contract
+			var em := get_node_or_null("/root/EventManager")
+			if em:
+				em.emit_signal("flash_contract_available", {"at_hour": 12.0})
+		"sched/weather":
+			var em2 := get_node_or_null("/root/EventManager")
+			if em2 and em2.has_method("force_weather_change"):
+				var id_s: String = String(payload.get("id","sunny"))
+				var wt: int = em2.WeatherType.SUNNY
+				if id_s == "cloudy": wt = em2.WeatherType.CLOUDY
+				elif id_s == "rain": wt = em2.WeatherType.RAINY
+				elif id_s == "storm": wt = em2.WeatherType.STORMY
+				elif id_s == "drought": wt = em2.WeatherType.DROUGHT
+				elif id_s == "fog": wt = em2.WeatherType.FOG
+				em2.force_weather_change(wt)
+
+func _show_and_start_countdown(seconds: int) -> void:
+	var ui = get_node_or_null("/root/UIManager")
+	# Ensure overlay is registered on client (idempotent)
+	if ui and ui.has_method("register_overlay"):
+		ui.register_overlay("countdown", "res://scenes/time/CountdownOverlay.tscn")
+
+	# Try show via UIManager
+	var shown: bool = false
+	if ui and ui.has_method("show_overlay"):
+		shown = ui.show_overlay("countdown")
+
+	# Fallback: instance directly if needed
+	if not shown and ui and ui.has_node("UILayer/Overlays"):
+		var ps: PackedScene = load("res://scenes/time/CountdownOverlay.tscn")
+		if ps:
+			var inst := ps.instantiate()
+			ui.get_node("UILayer/Overlays").add_child(inst)
+			shown = true
+
+	# Start countdown locally (no broadcast from client)
+	var ov = _get_countdown_overlay()
+	if ov and ov.has_method("start_countdown"):
+		ov.start_countdown(seconds, false)
+
+func _cancel_countdown_local() -> void:
+	var ov = _get_countdown_overlay()
+	if ov and ov.has_method("cancel_countdown"):
+		ov.cancel_countdown(false)
+
+func _finish_countdown_local() -> void:
+	var ov = _get_countdown_overlay()
+	if ov:
+		ov.hide()
+	if TimeManager and TimeManager.has_method("start_day"):
+		TimeManager.start_day()
+
+func _get_countdown_overlay() -> Node:
+	return get_node_or_null("/root/UIManager/UILayer/Overlays/CountdownOverlay")
+
+func _is_host() -> bool:
+	var nm = get_node_or_null("/root/NetworkManager")
+	if nm and "is_host" in nm:
+		return bool(nm.is_host)
+	return multiplayer.is_server()
+
+
+# ============================================================================
 # UTILITY FUNCTIONS
 # ============================================================================
 func _phase_to_string(phase: TimePhase) -> String:
@@ -394,6 +552,68 @@ func get_phase_color(phase: TimePhase) -> Color:
 		_: return Color.GRAY
 
 # ============================================================================
+# FARMING PHASE HELPERS
+# ============================================================================
+func _is_farming_phase(p: TimePhase) -> bool:
+	return p == TimePhase.MORNING or p == TimePhase.MIDDAY or p == TimePhase.EVENING
+
+func _ensure_time_inputs() -> void:
+	if not InputMap.has_action("time_toggle_calendar"):
+		InputMap.add_action("time_toggle_calendar")
+	InputMap.action_erase_events("time_toggle_calendar")
+	var ev := InputEventKey.new()
+	ev.keycode = KEY_Y
+	InputMap.action_add_event("time_toggle_calendar", ev)
+
+func _unhandled_input(event: InputEvent) -> void:
+	if event.is_action_pressed("time_start_day"):
+		if GameManager and GameManager.current_state != GameManager.GameState.PLAYING:
+			GameManager.change_state(GameManager.GameState.PLAYING)
+			await get_tree().process_frame
+		if _is_host():
+			_begin_countdown_host(10)
+	if event.is_action_pressed("time_toggle_hud"):
+		var ui = get_node_or_null("/root/UIManager")
+		if ui and ui.has_method("show_overlay"):
+			if get_node_or_null("/root/UIManager/UILayer/Overlays/TimeDisplay"):
+				ui.hide_overlay("time_display")
+			else:
+				ui.show_overlay("time_display")
+	if event.is_action_pressed("time_toggle_calendar"):
+		var ui = get_node_or_null("/root/UIManager")
+		if ui and ui.has_method("show_overlay"):
+			if get_node_or_null("/root/UIManager/UILayer/Overlays/CalendarUI"):
+				ui.hide_overlay("calendar")
+			else:
+				ui.show_overlay("calendar")
+
+func _begin_countdown_host(seconds: int) -> void:
+	var ui = get_node_or_null("/root/UIManager")
+	if ui and ui.has_method("show_overlay"):
+		ui.show_overlay("countdown")
+	var ov = _get_countdown_overlay()
+	if ov and ov.has_method("start_countdown"):
+		ov.start_countdown(seconds, true)  # host broadcasts once
+	else:
+		# Fallback if overlay missing
+		start_day()
+
+func _spawn_event_scheduler_if_missing() -> void:
+	if get_tree().root.get_node_or_null("EventScheduler") == null:
+		var s := preload("res://scripts/events/EventScheduler.gd").new()
+		s.name = "EventScheduler"
+		get_tree().root.add_child(s)
+
+# ============================================================================
+# DIFFICULTY SCALER
+# ============================================================================
+func _spawn_difficulty_scaler_if_missing() -> void:
+	if get_tree().root.get_node_or_null("DifficultyScaler") == null:
+		var s := preload("res://scripts/time/DifficultyScaler.gd").new()
+		s.name = "DifficultyScaler"
+		get_tree().root.add_child(s)
+
+# ============================================================================
 # DEBUG
 # ============================================================================
 func get_debug_info() -> Dictionary:
@@ -409,3 +629,9 @@ func get_debug_info() -> Dictionary:
 		"total_game_time": total_game_time,
 		"interaction_system_connected": interaction_system != null
 	}
+
+func _spawn_daynightcycle_if_missing() -> void:
+	if get_tree().root.get_node_or_null("DayNightCycle") == null:
+		var dnc: DayNightCycle = preload("res://scripts/time/DayNightCycle.gd").new()
+		dnc.name = "DayNightCycle"
+		get_tree().root.add_child(dnc)

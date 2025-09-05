@@ -1,0 +1,68 @@
+[gd_scene load_steps=2 format=3 uid="uid://cj2b1w0jq0uy4"]
+
+[ext_resource type="Script" uid="uid://mc12p6ai6byr" path="res://scripts/time/CalendarUI.gd" id="1_4sc1j"]
+
+[node name="CalendarUI" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+script = ExtResource("1_4sc1j")
+
+[node name="Background" type="ColorRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(1, 1, 1, 0.293)
+
+[node name="Header" type="HBoxContainer" parent="."]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -28.5
+offset_top = -294.0
+offset_right = 28.5
+offset_bottom = -271.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="TitleLabel" type="Label" parent="Header"]
+layout_mode = 2
+size_flags_horizontal = 4
+text = "Week 1"
+horizontal_alignment = 1
+
+[node name="WeekGrid" type="GridContainer" parent="."]
+layout_mode = 1
+anchors_preset = 10
+anchor_right = 1.0
+offset_top = 104.0
+offset_bottom = 104.0
+grow_horizontal = 2
+columns = 7
+
+[node name="ScheduleBox" type="VBoxContainer" parent="."]
+layout_mode = 1
+anchors_preset = 10
+anchor_right = 1.0
+offset_top = 61.0
+offset_bottom = 88.0
+grow_horizontal = 2
+
+[node name="ScheduleTitle" type="Label" parent="ScheduleBox"]
+layout_mode = 2
+text = "Today's Schedule"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="ScheduleList" type="VBoxContainer" parent="ScheduleBox"]
+layout_mode = 2

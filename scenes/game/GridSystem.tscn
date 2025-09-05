@@ -22,11 +22,14 @@ script = ExtResource("1_olcc5")
 highlight_seconds = 0.1
 
 [node name="Player" parent="." instance=ExtResource("4_xrkjl")]
+position = Vector2(126, 113)
 
 [node name="HUDLayer" type="CanvasLayer" parent="."]
 layer = 10
 
 [node name="ToolSelector" parent="HUDLayer" instance=ExtResource("7_ep3ea")]
+offset_top = 609.0
+offset_bottom = 609.0
 
 [node name="EmoteWheel" parent="HUDLayer" instance=ExtResource("5_7y2jo")]
 

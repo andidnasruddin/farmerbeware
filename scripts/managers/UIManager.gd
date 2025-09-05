@@ -73,6 +73,7 @@ func _ready() -> void:
 		print("[UIManager] Registered with GameManager")
 
 	_init_ui_roots()
+	_register_default_overlays()
 	print("[UIManager] Initialization complete")
 
 func _init_ui_roots() -> void:
@@ -242,33 +243,47 @@ func set_input_mode(mode: int) -> void:
 # SYSTEM INTEGRATION
 # ============================================================================
 func _on_game_state_changed(from_state: int, to_state: int) -> void:
-	# Route to screens/overlays if registered. Missing ids are ignored.
 	match to_state:
 		GameManager.GameState.MENU:
-			show_screen("menu")
+			show_screen_if_registered("menu")
 			hide_all_overlays()
 			clear_popups()
 			set_input_mode(InputMode.UI)
+
 		GameManager.GameState.PLAYING:
-			show_screen("hud")
-			hide_overlay("pause")
+			show_screen_if_registered("hud")	# Only if you have a HUD screen
+			hide_overlay_if_active("pause")
+			show_overlay_if_registered("time_display")
+			show_overlay_if_registered("weather_overlay")
 			set_input_mode(InputMode.GAME)
+
 		GameManager.GameState.PAUSED:
-			show_overlay("pause")
+			show_overlay_if_registered("pause")
 			set_input_mode(InputMode.UI)
+
 		GameManager.GameState.LOADING:
-			show_overlay("loading")
+			show_overlay_if_registered("loading")
 			set_input_mode(InputMode.UI)
+
 		GameManager.GameState.RESULTS:
-			show_screen("results")
+			show_screen_if_registered("results")
 			set_input_mode(InputMode.UI)
+
 		GameManager.GameState.GAME_OVER:
-			show_screen("game_over")
+			show_screen_if_registered("game_over")
 			hide_all_overlays()
 			clear_popups()
 			set_input_mode(InputMode.UI)
+
 		_:
 			pass
+
+func _register_default_overlays() -> void:
+	register_overlay("countdown", "res://scenes/time/CountdownOverlay.tscn")
+	register_overlay("phase_transition", "res://scenes/time/PhaseTransition.tscn")
+	register_overlay("time_display", "res://scenes/time/TimeDisplay.tscn")
+	register_overlay("calendar", "res://scenes/time/CalendarUI.tscn")
+	register_overlay("weather_overlay", "res://scenes/events/WeatherOverlay.tscn")
 
 # ============================================================================
 # UTILITY FUNCTIONS
@@ -280,6 +295,18 @@ func _emit_event(event_name: String, payload: Dictionary) -> void:
 		event_manager.emit(event_name, payload)
 	elif event_manager.has_method("dispatch"):
 		event_manager.dispatch(event_name, payload)
+
+func show_overlay_if_registered(id: String) -> void:
+	if overlay_paths.has(id):
+		show_overlay(id)
+
+func hide_overlay_if_active(id: String) -> void:
+	if active_overlays.has(id):
+		hide_overlay(id)
+
+func show_screen_if_registered(id: String) -> void:
+	if screen_paths.has(id):
+		show_screen(id)
 
 # ============================================================================
 # DEBUG
