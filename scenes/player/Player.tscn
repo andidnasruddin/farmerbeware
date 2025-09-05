@@ -1,9 +1,7 @@
-[gd_scene load_steps=20 format=3 uid="uid://cvt2frmd0nnde"]
+[gd_scene load_steps=19 format=3 uid="uid://cvt2frmd0nnde"]
 
 [ext_resource type="Script" uid="uid://cbwe2xml0bvan" path="res://scripts/player/PlayerController.gd" id="1_gfjak"]
 [ext_resource type="Script" uid="uid://b3uj5hpg0luxx" path="res://scripts/player/PlayerMovement.gd" id="1_wr5hl"]
-[ext_resource type="Resource" uid="uid://7ct64rsd4pvr" path="res://resources/player/player_stats.tres" id="2_524rm"]
-[ext_resource type="Resource" uid="uid://ci25kvbr6pyhq" path="res://resources/player/movement_config.tres" id="3_tpg5x"]
 [ext_resource type="PackedScene" uid="uid://20k470ul4qvv" path="res://scenes/player/PlayerVisuals.tscn" id="4_ejd4k"]
 [ext_resource type="Script" uid="uid://dqr81gc2ksoea" path="res://scripts/player/PlayerInventory.gd" id="4_tpg5x"]
 [ext_resource type="Script" uid="uid://cltkyvbwppt1l" path="res://scripts/tool/Tool.gd" id="5_180ig"]
@@ -17,6 +15,7 @@
 [ext_resource type="Script" uid="uid://cy0ndjp0lvjex" path="res://scripts/carry/CarrySystem.gd" id="14_ov1oi"]
 [ext_resource type="PackedScene" uid="uid://dsru4tpxjt7lu" path="res://scenes/ui/ThrowChargeBar.tscn" id="15_rn7t0"]
 [ext_resource type="PackedScene" uid="uid://0uu1v1can177" path="res://scenes/ui/StaminaBar.tscn" id="16_8qjgm"]
+[ext_resource type="Script" uid="uid://ckqieqpjbeqm3" path="res://scripts/player/PlayerNetwork.gd" id="18_2xrq6"]
 
 [sub_resource type="Resource" id="Resource_ov1oi"]
 script = ExtResource("6_20koh")
@@ -35,10 +34,9 @@ metadata/_custom_type_script = "uid://cv4nw8vk4qhbg"
 [node name="Player" type="CharacterBody2D" groups=["player"]]
 z_index = 100
 script = ExtResource("1_gfjak")
-stats = ExtResource("2_524rm")
-movement_config = ExtResource("3_tpg5x")
 
 [node name="PlayerVisuals" parent="." instance=ExtResource("4_ejd4k")]
+player_path = NodePath("..")
 
 [node name="Inventory" type="Node" parent="."]
 script = ExtResource("4_tpg5x")
@@ -70,3 +68,7 @@ offset_bottom = -18.0
 carry_system_path = NodePath("../CarrySystem")
 
 [node name="StaminaBar" parent="." instance=ExtResource("16_8qjgm")]
+
+[node name="PlayerNetwork" type="Node" parent="."]
+script = ExtResource("18_2xrq6")
+player_path = NodePath("..")

@@ -9,6 +9,11 @@ class_name GridDebugOverlay
 @export var show_chunks: bool = true
 @export var show_hover: bool = true
 
+# Debug logging (throttled)
+@export var debug_logs: bool = false
+@export var debug_log_interval: float = 1.0   # seconds between prints
+var _last_debug_print_ms: int = 0
+
 var grid_manager: Node = null
 var grid_validator: Node = null
 
@@ -55,7 +60,8 @@ func _on_grid_expanded(new_size: Vector2i) -> void:
 # DRAW
 # ============================================================================
 func _draw() -> void:
-	print("[GDO] _draw preview_count=", preview_targets.size())
+	_debug_print("[GDO] _draw preview_count=%d" % preview_targets.size())
+
 	if grid_manager == null:
 		return
 
@@ -98,11 +104,19 @@ func _draw() -> void:
 func set_preview(targets: Array[Vector2i], validity: Dictionary) -> void:
 	preview_targets = targets if targets != null else []
 	preview_valid = validity if validity != null else {}
+	_debug_print("[GDO] set_preview count=%d" % preview_targets.size())
 	queue_redraw()
-	print("[GDO] set_preview count=", preview_targets.size())
 
 func clear_preview() -> void:
 	preview_targets = []
 	preview_valid = {}
-	print("[GDO] clear_preview")
+	_debug_print("[GDO] clear_preview")
 	queue_redraw()
+
+func _debug_print(msg: String) -> void:
+	if not debug_logs:
+		return
+	var now: int = Time.get_ticks_msec()
+	if now - _last_debug_print_ms >= int(debug_log_interval * 1000.0):
+		print(msg)
+		_last_debug_print_ms = now

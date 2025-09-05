@@ -59,62 +59,53 @@ func _ready() -> void:
 	multiplayer.connection_failed.connect(_on_connection_failed)
 	multiplayer.server_disconnected.connect(_on_server_disconnected)
 
+	_ensure_net_inputs()
+
+	multiplayer.peer_connected.connect(func(id): print("[NET] peer_connected: ", id))
+	multiplayer.peer_disconnected.connect(func(id): print("[NET] peer_disconnected: ", id))
+	multiplayer.connected_to_server.connect(func(): print("[NET] connected_to_server"))
+	multiplayer.connection_failed.connect(func(): print("[NET] connection_failed"))
+	multiplayer.server_disconnected.connect(func(): print("[NET] server_disconnected"))
+
 	print("[NetworkManager] Initialization complete")
+	_ensure_net_inputs()
 
 # ============================================================================
 # CORE FUNCTIONALITY
 # ============================================================================
-func host(port: int = DEFAULT_PORT) -> bool:
-	"""Host a server on the given port."""
+func host(port: int) -> bool:
 	if multiplayer.has_multiplayer_peer():
-		print("[NetworkManager] Already in a session; leave() first")
-		return false
-
+		leave()
 	var enet := ENetMultiplayerPeer.new()
 	var err := enet.create_server(port)
 	if err != OK:
-		print("[NetworkManager] Host failed: ", err)
+		print("[NET] Host failed: ", err)
 		return false
-
 	multiplayer.multiplayer_peer = enet
-	peer = enet
 	is_host = true
-	connected_peers.clear()
-	emit_signal("network_started", "host", "localhost:%d" % port)
-	print("[NetworkManager] Hosting on port %d" % port)
+	print("[NET] Hosting on port ", port)
 	return true
 
-func join(ip: String, port: int = DEFAULT_PORT) -> bool:
-	"""Join a server at ip:port."""
+func join(ip: String, port: int) -> bool:
 	if multiplayer.has_multiplayer_peer():
-		print("[NetworkManager] Already in a session; leave() first")
-		return false
-
+		leave()
 	var enet := ENetMultiplayerPeer.new()
 	var err := enet.create_client(ip, port)
 	if err != OK:
-		print("[NetworkManager] Join failed: ", err)
+		print("[NET] Join failed: ", err)
 		return false
-
 	multiplayer.multiplayer_peer = enet
-	peer = enet
 	is_host = false
-	connected_peers.clear()
-	emit_signal("network_started", "client", "%s:%d" % [ip, port])
-	print("[NetworkManager] Joining %s:%d" % [ip, port])
+	print("[NET] Joining ", ip, ":", port)
 	return true
 
 func leave() -> void:
-	"""Leave current session (host or client)."""
 	if not multiplayer.has_multiplayer_peer():
 		return
-
 	multiplayer.multiplayer_peer = null
-	peer = null
 	is_host = false
 	connected_peers.clear()
-	emit_signal("network_stopped")
-	print("[NetworkManager] Left session")
+	print("[NET] Left session")
 
 func send_event(event_name: String, payload: Dictionary = {}, target_peer_id: int = 0) -> void:
 	"""Broadcast a small event to all peers (or a specific peer)."""
@@ -163,6 +154,41 @@ func _on_connection_failed() -> void:
 func _on_server_disconnected() -> void:
 	emit_signal("server_disconnected")
 	print("[NetworkManager] Server disconnected")
+	is_host = false
+
+func _ensure_net_inputs() -> void:
+	# Host (K)
+	if not InputMap.has_action("net_host"):
+		InputMap.add_action("net_host")
+	InputMap.action_erase_events("net_host")
+	var ev := InputEventKey.new(); ev.keycode = KEY_K
+	InputMap.action_add_event("net_host", ev)
+
+	# Join (L)
+	if not InputMap.has_action("net_join"):
+		InputMap.add_action("net_join")
+	InputMap.action_erase_events("net_join")
+	var ev2 := InputEventKey.new(); ev2.keycode = KEY_L
+	InputMap.action_add_event("net_join", ev2)
+
+	# Leave (F9) — unchanged
+	if not InputMap.has_action("net_leave"):
+		InputMap.add_action("net_leave")
+	InputMap.action_erase_events("net_leave")
+	var ev3 := InputEventKey.new(); ev3.keycode = KEY_F9
+	InputMap.action_add_event("net_leave", ev3)
+
+func _unhandled_input(event: InputEvent) -> void:
+	if event.is_action_pressed("net_host"):
+		var ok := host(25252)
+		print("[NET] host K -> ", ok)
+	if event.is_action_pressed("net_join"):
+		var ok := join("127.0.0.1", 25252)
+		print("[NET] join L -> ", ok)
+	if event.is_action_pressed("net_leave"):
+		leave()
+		print("[NET] leave F9")
+
 
 # ============================================================================
 # UTILITY FUNCTIONS
@@ -172,6 +198,8 @@ func get_peer_id() -> int:
 
 func is_network_active() -> bool:
 	return multiplayer.has_multiplayer_peer()
+
+
 
 # ============================================================================
 # DEBUG

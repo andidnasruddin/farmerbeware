@@ -600,3 +600,16 @@ func request_primary_action(tool_name: String, grid_pos: Vector2i, player_id: in
 			"player_id": player_id,
 			"facing": facing
 		})
+
+func request_action_from_network(peer_id: int, tool_name: String, grid_pos: Vector2i, facing: Vector2i) -> void:
+	# Host-only usage: route a networked request through the same queue/path
+	var action_type: String = _get_primary_action_for_tool(tool_name)
+	if action_type.is_empty():
+		return
+	if input_queue:
+		input_queue.enqueue(action_type, {
+			"pos": grid_pos,
+			"tool": tool_name,
+			"player_id": peer_id,
+			"facing": facing
+		})

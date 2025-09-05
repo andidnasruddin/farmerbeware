@@ -159,6 +159,15 @@ func _attempt_primary_action() -> void:
 	if InteractionSystem and InteractionSystem.has_method("request_primary_action"):
 		InteractionSystem.request_primary_action(tool_name, target, player_id, facing_vi)
 
+	if multiplayer and multiplayer.has_multiplayer_peer():
+		var net := get_node_or_null("PlayerNetwork") as PlayerNetwork
+		if net:
+			net.request_network_action(current_tool, target, facing_vi)
+		return
+
+	InteractionSystem.request_primary_action(current_tool, target, player_id, facing_vi)
+
+
 # ============================================================================
 # INPUT HELPERS
 # ============================================================================
