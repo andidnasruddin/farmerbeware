@@ -1,11 +1,11 @@
 [gd_scene load_steps=8 format=3 uid="uid://do3cvd62fojx4"]
 
 [ext_resource type="PackedScene" uid="uid://c3guexuc8edxo" path="res://scenes/visual/TileMapRenderer.tscn" id="1_0psxa"]
+[ext_resource type="PackedScene" uid="uid://d3xcxvye88epq" path="res://scenes/items/Crate.tscn" id="1_6er0p"]
 [ext_resource type="Script" uid="uid://b76uiywyx2onf" path="res://scenes/debug/GridDebugOverlay.gd" id="1_olcc5"]
 [ext_resource type="PackedScene" uid="uid://jayi2juk7q56" path="res://scenes/visual/ChunkRenderer.tscn" id="2_olcc5"]
 [ext_resource type="PackedScene" uid="uid://cvt2frmd0nnde" path="res://scenes/player/Player.tscn" id="4_xrkjl"]
 [ext_resource type="PackedScene" uid="uid://c472csxjpf31e" path="res://scenes/ui/EmoteWheel.tscn" id="5_7y2jo"]
-[ext_resource type="PackedScene" uid="uid://0uu1v1can177" path="res://scenes/ui/StaminaBar.tscn" id="6_6er0p"]
 [ext_resource type="PackedScene" uid="uid://bbkpd5ylxh5s0" path="res://scenes/ui/ToolSelector.tscn" id="7_ep3ea"]
 
 [node name="GridSystem" type="Node2D"]
@@ -21,14 +21,14 @@ script = ExtResource("1_olcc5")
 [node name="ChunkRenderer" parent="." instance=ExtResource("2_olcc5")]
 highlight_seconds = 0.1
 
-[node name="Player" parent="." groups=["player"] instance=ExtResource("4_xrkjl")]
+[node name="Player" parent="." instance=ExtResource("4_xrkjl")]
 
 [node name="HUDLayer" type="CanvasLayer" parent="."]
 layer = 10
 
-[node name="StaminaBar" parent="HUDLayer" instance=ExtResource("6_6er0p")]
-player_path = NodePath("../../Player")
-
 [node name="ToolSelector" parent="HUDLayer" instance=ExtResource("7_ep3ea")]
 
 [node name="EmoteWheel" parent="HUDLayer" instance=ExtResource("5_7y2jo")]
+
+[node name="Crate" parent="." instance=ExtResource("1_6er0p")]
+position = Vector2(611, 169)

@@ -1,0 +1,29 @@
+[gd_scene load_steps=4 format=3 uid="uid://d3xcxvye88epq"]
+
+[ext_resource type="Script" uid="uid://bjcupp14amuq5" path="res://scripts/carry/Item.gd" id="1_8qecc"]
+[ext_resource type="Texture2D" uid="uid://ccv77qfcge74q" path="res://icon.svg" id="2_7m2jo"]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_7m2jo"]
+size = Vector2(14, 14)
+
+[node name="Crate" type="RigidBody2D"]
+script = ExtResource("1_8qecc")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+shape = SubResource("RectangleShape2D_7m2jo")
+
+[node name="Sprite2D" type="Sprite2D" parent="."]
+scale = Vector2(0.2, 0.2)
+texture = ExtResource("2_7m2jo")
+
+[node name="ColorRect" type="ColorRect" parent="Sprite2D"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -64.0
+offset_top = -64.0
+offset_right = -64.0
+offset_bottom = -64.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0.791693, 0.398285, 0, 0.431373)

@@ -1,0 +1,9 @@
+[gd_scene load_steps=2 format=3 uid="uid://20k470ul4qvv"]
+
+[ext_resource type="Script" uid="uid://bexbwgwt1eiiv" path="res://scripts/player/PlayerAnimator.gd" id="1_8r7b6"]
+
+[node name="PlayerVisuals" type="Node2D"]
+script = ExtResource("1_8r7b6")
+
+[node name="Body" type="Sprite2D" parent="."]
+scale = Vector2(0.75, 0.75)

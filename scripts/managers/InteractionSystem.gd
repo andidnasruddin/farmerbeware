@@ -48,6 +48,7 @@ var input_enabled: bool = true
 var current_input_mode: String = "farm"  # "farm", "ui", "disabled"
 var selected_tool: String = "hoe"
 var target_position: Vector2i = Vector2i.ZERO
+var _is_carrying: bool = false
 
 # Action queue for multiplayer coordination
 var pending_actions: Array[PlayerAction] = []
@@ -338,6 +339,8 @@ func _enqueue_action(action_type: String, grid_pos: Vector2i, tool_name: String)
 # ACTION PROCESSING
 # ============================================================================
 func _perform_primary_action(grid_pos: Vector2i) -> void:
+	if _is_carrying:
+		return
 	var current_time: float = Time.get_unix_time_from_system()
 	if current_time - last_action_time < input_cooldown:
 		return
@@ -462,6 +465,10 @@ func select_tool(tool_name: String) -> bool:
 
 func get_current_tool() -> String:
 	return selected_tool
+
+func set_carry_state(flag: bool) -> void:
+	_is_carrying = flag
+	_update_preview()
 
 # ============================================================================
 # PLAYER MOVEMENT (cursor)

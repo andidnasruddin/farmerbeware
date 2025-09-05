@@ -5,7 +5,13 @@
       "Read(/C:\\Users\\dirha\\Documents\\GameCreator\\farmerbeware/**)",
       "Bash(git add:*)",
       "Bash(gh repo create:*)",
-      "Bash(git push:*)"
+      "Bash(git push:*)",
+      "mcp__pixellab__create_character",
+      "mcp__pixellab__animate_character",
+      "mcp__pixellab__get_character",
+      "Bash(mv:*)",
+      "Bash(cp:*)",
+      "Bash(rm:*)"
     ],
     "deny": [],
     "ask": []
