@@ -1,0 +1,25 @@
+[gd_scene load_steps=2 format=3 uid="uid://bbkpd5ylxh5s0"]
+
+[ext_resource type="Script" uid="uid://c2o82e57r8ja4" path="res://scripts/ui/ToolSelector.gd" id="1_g8xt6"]
+
+[node name="ToolSelector" type="Control"]
+layout_mode = 3
+anchors_preset = 0
+script = ExtResource("1_g8xt6")
+
+[node name="HBox" type="HBoxContainer" parent="."]
+layout_mode = 1
+anchors_preset = -1
+anchor_left = 16.0
+anchor_top = 40.0
+anchor_right = 16.0
+anchor_bottom = 40.0
+offset_right = 40.0
+offset_bottom = 40.0
+
+[node name="TextureRect" type="TextureRect" parent="HBox"]
+layout_mode = 2
+
+[node name="ToolName" type="Label" parent="HBox"]
+layout_mode = 2
+text = "Tool:"
