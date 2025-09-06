@@ -366,6 +366,19 @@ func end_active_weather_events() -> void:
 		if e.event_type == EventType.WEATHER:
 			_end_event(e, true)
 
+# Snapshot of active weather state. Returns { "type": int, "remaining": float }
+func get_active_weather_snapshot() -> Dictionary:
+	var snap: Dictionary = {"type": int(current_weather), "remaining": -1.0}
+	for e in active_events:
+		if e and e.event_type == EventType.WEATHER and bool(e.is_active):
+			var rem: float = 0.0
+			if e.has_method("get_remaining_time"):
+				rem = float(e.get_remaining_time())
+			snap["type"] = int(e.weather_type)
+			snap["remaining"] = rem
+			break
+	return snap
+
 # ============================================================================
 # EVENT CREATION FACTORIES
 # ============================================================================

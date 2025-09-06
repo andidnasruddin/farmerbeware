@@ -1,0 +1,58 @@
+[gd_resource type="Resource" script_class="EventSchedule" load_steps=10 format=3]
+
+[ext_resource type="Script" path="res://scripts/events/ScheduleEntry.gd" id="1_Entry"]
+[ext_resource type="Script" path="res://scripts/events/EventSchedule.gd" id="2_Schedule"]
+
+[sub_resource type="Resource" id="Entry_Storm_61"]
+script = ExtResource("1_Entry")
+hour = 6.1
+event_type = "WEATHER"
+id = "storm"
+chance = 0.35
+
+[sub_resource type="Resource" id="Entry_Mayor_72"]
+script = ExtResource("1_Entry")
+hour = 7.2
+event_type = "NPC"
+id = "mayor"
+chance = 0.3
+
+[sub_resource type="Resource" id="Entry_Plague_80"]
+script = ExtResource("1_Entry")
+hour = 8.0
+event_type = "DISASTER"
+id = "plague"
+chance = 0.2
+
+[sub_resource type="Resource" id="Entry_Cloudy_95"]
+script = ExtResource("1_Entry")
+hour = 9.5
+event_type = "WEATHER"
+id = "cloudy"
+chance = 1.0
+
+[sub_resource type="Resource" id="Entry_Rain_138"]
+script = ExtResource("1_Entry")
+hour = 13.8
+event_type = "WEATHER"
+id = "rain"
+chance = 0.6
+
+[sub_resource type="Resource" id="Entry_Flood_152"]
+script = ExtResource("1_Entry")
+hour = 15.2
+event_type = "DISASTER"
+id = "flood"
+chance = 0.25
+
+[resource]
+script = ExtResource("2_Schedule")
+entries = Array[ExtResource("1_Entry")]([
+SubResource("Entry_Storm_61"),
+SubResource("Entry_Mayor_72"),
+SubResource("Entry_Plague_80"),
+SubResource("Entry_Cloudy_95"),
+SubResource("Entry_Rain_138"),
+SubResource("Entry_Flood_152")
+])
+

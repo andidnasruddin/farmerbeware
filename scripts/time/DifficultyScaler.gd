@@ -29,11 +29,11 @@ var _last_results: Dictionary = {}
 
 # Caps/minima
 @export var max_difficulty_mult: float = 2.0	# 200%
-@export var min_phase_seconds: float = 30.0		# absolute floor per phase
+@export var min_phase_seconds: float = 45.0		# absolute floor per phase
 
 # Weekly base increments (applied per week after week 1)
-@export var weekly_time_pressure: float = 0.20	# +20% per week (reduces phase durations)
-@export var weekly_event_freq: float = 0.30		# +30% per week (all event types)
+@export var weekly_time_pressure: float = 0.15	# +15% per week (reduces phase durations)
+@export var weekly_event_freq: float = 0.25		# +25% per week (all event types)
 @export var weekly_disaster_extra: float = 0.15	# +15% per week (extra on disasters)
 
 # Dynamic difficulty knobs (optional)

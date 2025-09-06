@@ -235,3 +235,49 @@ TimeManager listens to NetworkManager.event_received, peer_connected, and SceneT
 Host ignores its own outbound events (no recursion).
 Result: countdown works from either window (host‑authoritative), phase changes/fades are mirrored, late‑joiners snap to host time, and weather starts/ends on both peers at the same in‑game moments.
 
+That wraps Step 14.
+
+Quick recap
+
+Added DebugOverlay (F3) showing:
+FPS, Game state/money
+Day, phase, % complete, clock
+Current weather + active events count
+Next scheduled events (top 3)
+Difficulty scaler snapshot (week, dynamic bonus, assist flag)
+Net status (active/host/peers)
+Fixed GDScript 4 issues:
+Removed ternaries, added type hints, replaced String(bool) with str(bool).
+
+Step 16 implemented: late‑join weather/time snapshot sync
+
+What I changed
+
+Time snapshots now include weather
+
+In TimeManager.build_time_snapshot():
+Adds weather_type (int) and weather_remaining (float, seconds) pulled from EventManager.
+Reads any active weather event’s remaining time via a new helper on EventManager.
+In TimeManager.apply_time_snapshot():
+Ends any client‑side active weather.
+If snapshot has a weather duration > 0, calls EventManager.force_weather_change_with_duration(type, remaining).
+Otherwise calls EventManager.force_weather_change(type).
+EventManager weather snapshot helper
+
+Added get_active_weather_snapshot():
+Returns { "type": current_weather or active weather type, "remaining": seconds or -1.0 if none }.
+Already has end_active_weather_events() (used when applying snapshot).
+Why this helps
+
+Late joiners now snap to the host’s day, phase, and exact weather state:
+If host is mid‑rain with 92 seconds remaining, the client ends any local weather and starts rain for 92 seconds.
+If host is sunny, the client ends any rain and applies SUNNY immediately.
+What to try
+
+Host starts a session, runs until mid‑rain.
+Join with a client: the client should jump to host’s time and show the same weather with the same remaining duration (overlay follows the event lifecycle).
+No snapshot is sent when playing offline unless you host in tests (as you’ve been doing).
+Notes
+
+Snapshot handling remains client‑only; host ignores its own events except snapshot_request (as before).
+If you later add other “ambient” states (e.g., NPC overlays), you can snapshot them similarly.

@@ -11,7 +11,11 @@
       "mcp__pixellab__get_character",
       "Bash(mv:*)",
       "Bash(cp:*)",
-      "Bash(rm:*)"
+      "Bash(rm:*)",
+      "mcp__pixellab__create_isometric_tile",
+      "mcp__pixellab__get_isometric_tile",
+      "Bash(mkdir:*)",
+      "Bash(curl:*)"
     ],
     "deny": [],
     "ask": []

@@ -1,3 +1,75 @@
+Here’s a concise cross‑check against docs/4_TimeSystem.md so we stay aligned. I’ve mapped the doc’s requirements to what we’ve already implemented and what remains.
+
+Core Rules (Doc)
+
+Time only flows during FARMING; Planning is infinite. Status: implemented (TimeManager gating + Start Day).
+Events scheduled by game hour (6–18). Status: implemented (EventScheduler + Week 1–4 schedules).
+Flash Contract always at 12:00 PM. Status: enforced (injection in EventScheduler).
+Weather lasts 2–5 minutes. Status: enforced (host picks duration; clients mirror).
+Week 4 is intentionally overwhelming. Status: schedule present and DifficultyScaler tuned.
+All timers respect time_scale for debugging. Gap: current system uses game_speed and create_timer(1.0); we haven’t tied to Engine.time_scale. Note as future adjustment.
+Phase transitions require network sync. Status: implemented (host broadcasts; clients play fades).
+Implementation Priority (Doc)
+
+TimeManager.gd (core time system). Status: done (gates, day start/end, snapshot).
+PhaseController.gd (phase transitions). Status: done (fade overlay).
+EventManager.gd (events hub). Status: done (weather lifecycle; queues; signals).
+DayNightCycle.gd (time progression). Status: done (6→18 mapping; HUD signal).
+WeatherController.gd (manager). Gap: folded into EventManager + WeatherOverlay; no separate WeatherController script. This is acceptable unless you want strict file parity.
+EventScheduler.gd (timing logic). Status: done (host‑only; broadcast).
+DisasterEvent.gd. Gap: stubs only (we broadcast sched/disaster but no gameplay impact/visuals yet).
+NPCBase.gd. Gap: stubs only (we broadcast sched/npc, no NPC visitor implementation yet).
+Scenes (Doc)
+
+scenes/time/TimeDisplay.tscn. Status: done (clock, phase, day/week, progress).
+scenes/time/CountdownOverlay.tscn. Status: done (host‑authoritative).
+scenes/time/PhaseTransition.tscn. Status: done (fade).
+scenes/time/CalendarUI.tscn. Status: done (today’s schedule, dims fired).
+scenes/events/WeatherOverlay.tscn. Status: done (rain + tints).
+scenes/events/EventNotification.tscn. Gap: not implemented (popups for events).
+scenes/events/NPCVisitor.tscn. Gap: not implemented.
+scenes/events/DisasterEffect.tscn. Gap: not implemented.
+Scripts (Doc)
+
+scripts/time/TimeDisplay.gd. Status: done.
+scripts/time/CountdownController.gd. Status: done.
+scripts/time/DifficultyScaler.gd. Status: done (weekly + dynamic; assist).
+scripts/events/Event.gd, WeatherEvent.gd, StoryEvent.gd, DisasterEvent.gd, NPCEvent.gd. Gap: modeled inside EventManager’s GameEvent; if you want doc parity, we can split these classes.
+scripts/weather/WeatherEffects.gd. Status: done (visuals), but doc calls this under weather controller; our overlay contains effects.
+Networking (Doc)
+
+Host‑authority only; no recursive RPC. Status: implemented (send_event + guards).
+Late‑join sync. Status: implemented (time + weather snapshot).
+Session hygiene (leave before host/join). Status: implemented in NetworkManager.
+UI Details (Doc)
+
+Time UI: digital clock, day/week, phase name, sun arc, pressure indicators. Status: done (colors; no icons).
+Countdown UI: full overlay with cancel + audio. Status: done (beep per tick).
+Pressure indicators. Status: basic color thresholds; can add more (icons/pulse) later.
+Audio (Doc)
+
+Tick/beep, phase transition, day end bell, weather ambience. Status: wired; assets optional (WARNs if missing).
+What’s Next (Strictly From Doc)
+
+Disaster events (gameplay + visuals)
+Implement DisasterEvent pipeline (script class or extend GameEvent), system effects (e.g., flood/drought/plague), and scenes/events/DisasterEffect.tscn.
+Wire scheduler’s sched/disaster to actual gameplay + optional on‑screen effect.
+NPC visitors
+Add scripts/events/NPCBase.gd and scenes/events/NPCVisitor.tscn.
+Implement simple spawn/visit + basic interaction or notification (EventNotification).
+Wire scheduler’s sched/npc.
+Event notifications
+Add EventNotification.tscn + lightweight controller to show “Rain started”, “NPC arrived”, “Disaster warning”, etc.
+Subscribe to EventManager.event_started/event_ended/disaster_warning.
+Doc‑Consistent Polish (Optional)
+
+time_scale support: tie countdown and phase calculations to Engine.time_scale (so pausing/scaling affects all timers).
+Time UI pressure: add icon/pulse states for “last hour/30m/10m/minute”.
+WeatherController consolidation: if you want strict parity, add a thin WeatherController.gd that delegates to EventManager + WeatherOverlay (purely organizational).
+
+
+# -------------------------------------------------------------#
+
 res://
 ├── scenes/
 │   ├── time/

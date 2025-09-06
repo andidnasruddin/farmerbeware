@@ -140,7 +140,6 @@ func _on_time_updated(_h: int, _m: int, percent: float) -> void:
 		# Fire only when we cross the boundary prev < target <= current
 		if (_last_hour + eps) < target and (cur_hour + eps) >= target:
 			_try_fire_entry(e)
-		print("[Sched] last=%.3f cur=%.3f target=%.3f" % [_last_hour, cur_hour, target])
 	_last_hour = cur_hour
 
 func _current_hour_from_percent(percent: float) -> float:

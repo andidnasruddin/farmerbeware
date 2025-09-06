@@ -284,6 +284,7 @@ func _register_default_overlays() -> void:
 	register_overlay("time_display", "res://scenes/time/TimeDisplay.tscn")
 	register_overlay("calendar", "res://scenes/time/CalendarUI.tscn")
 	register_overlay("weather_overlay", "res://scenes/events/WeatherOverlay.tscn")
+	register_overlay("debug_overlay", "res://scenes/debug/DebugOverlay.tscn")
 
 # ============================================================================
 # UTILITY FUNCTIONS

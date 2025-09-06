@@ -1,0 +1,23 @@
+[gd_scene load_steps=2 format=3 uid="uid://djy7fh2sojr1u"]
+
+[ext_resource type="Script" uid="uid://bp5ful7y8c7em" path="res://scenes/debug/DebugOverlay.gd" id="1_dje7f"]
+
+[node name="DebugOverlay" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+script = ExtResource("1_dje7f")
+
+[node name="Readout" type="Label" parent="."]
+layout_mode = 1
+anchors_preset = 1
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -40.0
+offset_bottom = 23.0
+grow_horizontal = 0
+horizontal_alignment = 2

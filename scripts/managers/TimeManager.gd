@@ -639,6 +639,12 @@ func _ensure_time_inputs() -> void:
 	var ev := InputEventKey.new()
 	ev.keycode = KEY_Y
 	InputMap.action_add_event("time_toggle_calendar", ev)
+	if not InputMap.has_action("toggle_debug"):
+		InputMap.add_action("toggle_debug")
+	InputMap.action_erase_events("toggle_debug")
+	var evd := InputEventKey.new()
+	evd.keycode = KEY_F3
+	InputMap.action_add_event("toggle_debug", evd)
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("time_start_day"):
@@ -653,6 +659,13 @@ func _unhandled_input(event: InputEvent) -> void:
 			var nm: Node = get_node_or_null("/root/NetworkManager")
 			if nm and nm.has_method("send_event"):
 				nm.send_event(EV_COUNTDOWN_REQUEST, {"seconds": 10})
+	if event.is_action_pressed("toggle_debug"):
+		var ui := get_node_or_null("/root/UIManager")
+		if ui and ui.has_method("show_overlay"):
+			if get_node_or_null("/root/UIManager/UILayer/Overlays/DebugOverlay"):
+				ui.hide_overlay("debug_overlay")
+			else:
+				ui.show_overlay("debug_overlay")
 
 func _begin_countdown_host(seconds: int) -> void:
 	var ui: Node = get_node_or_null("/root/UIManager")
@@ -698,6 +711,19 @@ func build_time_snapshot() -> Dictionary:
 	var hour: float = 6.0
 	if dnc and dnc.has_method("get_decimal_hour"):
 		hour = float(dnc.get_decimal_hour())
+
+	# Weather snapshot from EventManager (optional, for late join sync)
+	var em: Node = get_node_or_null("/root/EventManager")
+	var wt: int = -1
+	var wrem: float = -1.0
+	if em:
+		if "current_weather" in em:
+			wt = int(em.current_weather)
+		if em.has_method("get_active_weather_snapshot"):
+			var ws: Dictionary = em.get_active_weather_snapshot()
+			wt = int(ws.get("type", wt))
+			wrem = float(ws.get("remaining", -1.0))
+
 	return {
 		"day": d,
 		"phase": p,
@@ -706,7 +732,9 @@ func build_time_snapshot() -> Dictionary:
 		"percent": percent,
 		"speed": speed,
 		"paused": paused,
-		"hour": hour
+		"hour": hour,
+		"weather_type": wt,
+		"weather_remaining": wrem
 	}
 
 func apply_time_snapshot(snap: Dictionary, announce: bool = true) -> void:
@@ -726,10 +754,27 @@ func apply_time_snapshot(snap: Dictionary, announce: bool = true) -> void:
 	game_speed = speed
 	is_paused = paused
 
+	# Ensure client is in PLAYING so time and systems tick
+	if GameManager and GameManager.current_state != GameManager.GameState.PLAYING:
+		GameManager.change_state(GameManager.GameState.PLAYING)
+
 	# Optional UI refresh
 	if announce and old_phase != new_phase:
 		phase_changed.emit(old_phase, new_phase)
 		_on_phase_entered(new_phase)
+
+	# Apply weather state from snapshot (client side only)
+	var em: Node = get_node_or_null("/root/EventManager")
+	if em:
+		var snap_wt: int = int(snap.get("weather_type", -1))
+		var snap_rem: float = float(snap.get("weather_remaining", -1.0))
+		if snap_wt != -1:
+			if em.has_method("end_active_weather_events"):
+				em.end_active_weather_events()
+			if snap_rem > 0.0 and em.has_method("force_weather_change_with_duration"):
+				em.force_weather_change_with_duration(snap_wt, snap_rem)
+			elif em.has_method("force_weather_change"):
+				em.force_weather_change(snap_wt)
 
 func send_time_snapshot_to(peer_id: int) -> void:
 	var nm: Node = get_node_or_null("/root/NetworkManager")

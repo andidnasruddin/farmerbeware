@@ -1,0 +1,82 @@
+[gd_resource type="Resource" script_class="EventSchedule" load_steps=14 format=3]
+
+[ext_resource type="Script" path="res://scripts/events/ScheduleEntry.gd" id="1_Entry"]
+[ext_resource type="Script" path="res://scripts/events/EventSchedule.gd" id="2_Schedule"]
+
+[sub_resource type="Resource" id="Entry_Rain_60"]
+script = ExtResource("1_Entry")
+hour = 6.0
+event_type = "WEATHER"
+id = "rain"
+chance = 1.0
+
+[sub_resource type="Resource" id="Entry_Storm_62"]
+script = ExtResource("1_Entry")
+hour = 6.2
+event_type = "DISASTER"
+id = "storm"
+chance = 0.35
+
+[sub_resource type="Resource" id="Entry_Merchant_70"]
+script = ExtResource("1_Entry")
+hour = 7.0
+event_type = "NPC"
+id = "merchant"
+chance = 0.6
+
+[sub_resource type="Resource" id="Entry_Sunny_80"]
+script = ExtResource("1_Entry")
+hour = 8.0
+event_type = "WEATHER"
+id = "sunny"
+chance = 1.0
+
+[sub_resource type="Resource" id="Entry_Drought_90"]
+script = ExtResource("1_Entry")
+hour = 9.0
+event_type = "DISASTER"
+id = "drought"
+chance = 0.3
+
+[sub_resource type="Resource" id="Entry_Fog_100"]
+script = ExtResource("1_Entry")
+hour = 10.0
+event_type = "WEATHER"
+id = "fog"
+chance = 0.5
+
+[sub_resource type="Resource" id="Entry_Plague_130"]
+script = ExtResource("1_Entry")
+hour = 13.0
+event_type = "DISASTER"
+id = "plague"
+chance = 0.35
+
+[sub_resource type="Resource" id="Entry_Storm_140"]
+script = ExtResource("1_Entry")
+hour = 14.0
+event_type = "WEATHER"
+id = "storm"
+chance = 0.4
+
+[sub_resource type="Resource" id="Entry_Inspector_153"]
+script = ExtResource("1_Entry")
+hour = 15.3
+event_type = "NPC"
+id = "inspector"
+chance = 0.4
+
+[resource]
+script = ExtResource("2_Schedule")
+entries = Array[ExtResource("1_Entry")]([
+SubResource("Entry_Rain_60"),
+SubResource("Entry_Storm_62"),
+SubResource("Entry_Merchant_70"),
+SubResource("Entry_Sunny_80"),
+SubResource("Entry_Drought_90"),
+SubResource("Entry_Fog_100"),
+SubResource("Entry_Plague_130"),
+SubResource("Entry_Storm_140"),
+SubResource("Entry_Inspector_153")
+])
+
