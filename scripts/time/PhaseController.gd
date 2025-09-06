@@ -26,7 +26,9 @@ func _ready() -> void:
 		_fade.color = c
 
 func play_transition(from_phase: int, to_phase: int) -> void:
-	# Block input briefly during fade
+	var am: Node = get_node_or_null("/root/AudioManager")
+	if am and am.has_method("play_sfx"):
+		am.play_sfx("phase_transition")
 	show()
 
 	if _label:

@@ -109,3 +109,129 @@ Apply Step 10 (difficulty) → observe week scaling.
 Wire Step 11 (network sync) → validate with two instances.
 Final polish: audio, debug info, tests.
 ```
+
+Here’s a concise recap of what we implemented and fixed (Steps 1–10), with key choices and references for future work.
+
+Core Timeflow
+
+Planning infinite: Time does not tick in PLANNING; only in FARMING (MORNING/MIDDAY/EVENING).
+Start Day: P opens countdown; host-only begins day via TimeManager.start_day().
+Process gating: TimeManager._process() early-returns unless PLAYING and in FARMING; warnings only during FARMING.
+Day/Night + HUD
+
+DayNightCycle: Tracks 6:00→18:00 mapped from FARMING progress; emits time_updated(h, m, percent). Spawned from TimeManager to avoid autoload name collision.
+TimeDisplay HUD: Shows clock, phase, day/week, and sun progress. Fixed:
+Use instance at /root/DayNightCycle (not the class).
+Use $ node paths (not %) and add a 0.2s polling fallback.
+Stable display: floor minutes to avoid “5:57 AM” jitter.
+UIManager: Registers overlays on itself at startup and shows time_display when entering PLAYING.
+Countdown (Host‑Authoritative)
+
+Overlay: CountdownOverlay with CountdownController.gd. Keys: P open, C/Esc cancel.
+Net events: time/countdown_start|cancel|finish.
+Host fixes:
+Ignore own network events to prevent recursion/overflow.
+Clients show overlay and start locally on receive.
+Cancel/finish mirrored to clients.
+Dimmer set to IGNORE so Cancel button is clickable.
+Phase Transitions
+
+Overlay: PhaseTransition with PhaseController.gd.
+Fixes: Use ColorRect.color.a tweening; no ?: ternary; safe tween kill; plays on every phase_changed.
+Net: Host broadcasts time/phase_change; clients play fade on receipt.
+Calendar
+
+Overlay: CalendarUI with weekly labels and “Today’s Schedule” list.
+Fixes:
+Remove “extension method” attempt; add _clear_container.
+Toggle with Y; added method set_today_schedule(entries).
+Scheduler refreshes list when calendar opens (list stays in sync even if opened later).
+Event Scheduler
+
+Node: EventScheduler.gd (spawned once).
+Loads resources/schedules/weekN_schedule.tres (supports both plain dictionary arrays and typed EventSchedule/Entry).
+Guarantees Flash Contract at 12:00 PM if missing.
+Fires entries by precise clock:
+Uses DayNightCycle percent → hour, and prev/cur hour crossing (prev < target ≤ cur) to avoid early firing.
+Net mirroring: Host broadcasts sched/flash, sched/weather; clients mirror effects.
+Calendar integration: Builds a display list and dims fired entries.
+Weather Overlays
+
+Overlay: WeatherOverlay with WeatherEffects.gd.
+Visuals: Darken/Fog/Warm tints; multi-emitter rain layer for robust GPUParticles2D across viewport.
+Key fixes:
+Godot 4 ParticleProcessMaterial properties use Vector3 (direction, gravity).
+Avoid emission_points/emission_rect_extents/enums; build emitters in a “RainLayer”.
+Emitters created with emitting=false and _hide_all() after build to prevent particles in PLANNING/countdown.
+Event lock: tie visuals to EventManager event_started/event_ended for WEATHER; ignore weather_changed while an event is active.
+Rebuild emitters on resize; keep them off unless a weather event is running.
+Difficulty Scaler
+
+Node: DifficultyScaler.gd (spawned once).
+Captures base phase durations once; on each day:
+Applies time pressure (shorter phases) with per-week scaling, dynamic bonus (never decreases), Assist Mode (-20%), and hard minimum seconds.
+Multiplies EventManager.event_probabilities (cap), with extra for DISASTER.
+GDScript 4 tightened: typed locals, no ambiguous :=, direct enum key int(EventManager.EventType.DISASTER).
+Networking
+
+Host-authoritative: Countdown, phase changes, schedule fires all originate on host; clients apply and never echo.
+Guards: Host ignores its own network events; clients wait until connected; overlay registration done at UIManager startup to avoid “not registered” warnings.
+Late join: Clients receive current day/phase/time via ongoing signals and net events (countdown/phase/weather).
+UIManager Edits
+
+Registration at startup:
+register_overlay("countdown"|"phase_transition"|"time_display"|"calendar"|"weather_overlay", path)
+Helpers to avoid warnings:
+show_screen_if_registered, show_overlay_if_registered, hide_overlay_if_active
+State handling: In PLAYING, show time_display and weather_overlay; leave “hud” guarded (only if you register one).
+GDScript 4 Compliance (common pitfalls fixed)
+
+Avoid ?: ternary; use value if cond else other.
+:= always with a type hint or use = for Variant sources (Resource.get).
+Use range(n) and typed locals (var i: int).
+2D particles use Vector3 for direction/gravity.
+Access enums as ints: int(EventManager.EventType.DISASTER).
+Input Map
+
+P: Start day (opens countdown)
+C/Esc: Cancel countdown
+Y: Toggle calendar
+(Optional H: Toggle HUD if you kept the handler)
+Event/Overlay IDs (cheat sheet)
+
+Net events: time/countdown_start, time/countdown_cancel, time/countdown_finish, time/phase_change, sched/flash, sched/weather
+Overlays: countdown, phase_transition, time_display, calendar, weather_overlay
+If you’re ready, Step 11 is the host time sync audit:
+
+Verify all time/phase state is authoritative on host and mirrored on clients (including late join sync snapshot).
+Add a small host snapshot RPC/event (time/snapshot) with { day, phase, phase_elapsed|percent } on client connect to snap newcomers to the host’s clock.
+Ensure no client can trigger phase/clock changes locally (defensive guards remain in place).
+
+# --- Step 11 --- #
+
+Step 11 work that made sync solid:
+
+Host‑only control
+
+Guarded countdown: P works on host; clients send time/countdown_request → host opens/broadcasts.
+Random weather checks moved to host only; clients no longer roll weather locally.
+Late‑join time snapshot
+
+Added time/snapshot and time/snapshot_request.
+Host sends { day, phase, elapsed, duration, percent, speed, paused, hour } to new peers; clients apply via apply_time_snapshot().
+Phase/overlay sync
+
+Kept phase fade broadcasts (time/phase_change) and client playback.
+Ensured UI overlays (countdown, phase transition, time HUD, weather overlay) are registered/shown reliably.
+Weather synchronization (the big fix)
+
+Host decides weather duration and broadcasts sched/weather { id, dur }.
+Client first ends any active weather (end_active_weather_events()), then applies host’s weather; duration respected.
+Added optional sched/weather_end hard stop from host when a weather event ends.
+Weather overlay reacts to EventManager event_started/event_ended, so visuals align with lifecycle.
+Networking wiring
+
+TimeManager listens to NetworkManager.event_received, peer_connected, and SceneTree multiplayer.connected_to_server.
+Host ignores its own outbound events (no recursion).
+Result: countdown works from either window (host‑authoritative), phase changes/fades are mirrored, late‑joiners snap to host time, and weather starts/ends on both peers at the same in‑game moments.
+

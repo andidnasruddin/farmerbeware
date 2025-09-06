@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://bun8sgfn4m78w"]
+
+[ext_resource type="Script" uid="uid://22xgcffi5i0i" path="res://tests/TimeSystemTest.gd" id="1_0kbwe"]
+
+[node name="TestTimeSystem" type="Node"]
+script = ExtResource("1_0kbwe")

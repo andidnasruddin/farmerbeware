@@ -41,6 +41,13 @@ func _ready() -> void:
 	name = "NetworkManager"
 	print("[NetworkManager] Initializing as Autoload #10...")
 
+	# Force host mode for single-instance tests
+	var nm: Node = get_node_or_null("/root/NetworkManager")
+	if nm and nm.has_method("is_network_active"):
+		# Offline (no peer) → act as host so the scheduler fires
+		if not nm.is_network_active():
+			nm.is_host = true
+
 	# Connect to systems
 	game_manager = GameManager
 	event_manager = get_node_or_null("/root/EventManager")
@@ -51,6 +58,10 @@ func _ready() -> void:
 	if game_manager and game_manager.has_method("register_system"):
 		game_manager.register_system("NetworkManager", self)
 		print("[NetworkManager] Registered with GameManager")
+
+		# OFFLINE DEFAULT: act as host when no session is active
+	if not multiplayer.has_multiplayer_peer():
+		is_host = true
 
 	# Bind multiplayer signals
 	multiplayer.peer_connected.connect(_on_peer_connected)
@@ -199,7 +210,9 @@ func get_peer_id() -> int:
 func is_network_active() -> bool:
 	return multiplayer.has_multiplayer_peer()
 
-
+# ============================================================================
+# SNAPSHOT -> TIMEMANAGER.GD
+# ============================================================================
 
 # ============================================================================
 # DEBUG

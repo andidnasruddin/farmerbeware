@@ -45,7 +45,7 @@ var phase_durations: Dictionary = {
 }
 
 # Speed control
-var game_speed: float = 1.0      # Normal speed
+var game_speed: float = 3.0      # Normal speed
 var max_speed: float = 3.0       # Maximum speed multiplier
 var min_speed: float = 0.1       # Minimum speed (slow motion)
 var is_paused: bool = false
@@ -60,6 +60,11 @@ var phase_warnings: Array[int] = [60, 30, 10, 5]  # Warning times in seconds
 
 # System references  
 var interaction_system: Node = null
+
+# Multiplayer
+var _mp_connected_bound: bool = false
+
+const EV_COUNTDOWN_REQUEST: String = "time/countdown_request"
 
 # ============================================================================
 # INITIALIZATION
@@ -84,8 +89,8 @@ func _ready() -> void:
 	
 	if get_tree().root.get_node_or_null("/root/DayNightCycle") == null:
 		var dnc: DayNightCycle = preload("res://scripts/time/DayNightCycle.gd").new()
-		get_tree().root.add_child(dnc)
-	
+		get_tree().root.call_deferred("add_child", dnc)
+
 	var ui := get_node_or_null("/root/UIManager")
 	if ui and ui.has_method("register_overlay"):
 		ui.register_overlay("countdown", "res://scenes/time/CountdownOverlay.tscn")
@@ -242,6 +247,11 @@ func _on_phase_entered(phase: TimePhase) -> void:
 func start_day() -> void:
 	if current_phase != TimePhase.PLANNING:
 		return
+
+	# Ensure runtime time nodes exist before starting the day so
+	# EventScheduler can connect to DayNightCycle and receive early updates.
+	_spawn_daynightcycle_if_missing()
+	_spawn_event_scheduler_if_missing()
 	if GameManager and GameManager.current_state != GameManager.GameState.PLAYING:
 		GameManager.change_state(GameManager.GameState.PLAYING)
 		await get_tree().process_frame
@@ -272,9 +282,10 @@ func _start_new_day() -> void:
 	# TODO: Apply overnight growth
 
 func _end_day() -> void:
-	"""End the current day and calculate results"""
 	print("[TimeManager] Ending Day %d" % current_day)
-	
+	var am: Node = get_node_or_null("/root/AudioManager")
+	if am and am.has_method("play_sfx"):
+		am.play_sfx("day_end_bell")
 	var day_results: Dictionary = _calculate_day_results()
 	day_ended.emit(current_day, day_results)
 
@@ -440,18 +451,76 @@ func get_day_in_week() -> int:
 
 # Call after ready
 func _connect_network_time_events() -> void:
-	var nm = get_node_or_null("/root/NetworkManager")
+	var nm: Node = get_node_or_null("/root/NetworkManager")
 	if nm:
 		if not nm.is_connected("event_received", Callable(self, "_on_net_time_event")):
 			nm.event_received.connect(_on_net_time_event)
+		if not nm.is_connected("peer_connected", Callable(self, "_on_peer_connected_for_time")):
+			nm.peer_connected.connect(_on_peer_connected_for_time)
+		# Use the SceneTree multiplayer signal (NetworkManager doesn't expose its own)
+		if not _mp_connected_bound:
+			multiplayer.connected_to_server.connect(_on_connected_to_server_for_time)
+			_mp_connected_bound = true
 	else:
-		# Retry next frame until NetworkManager is live
 		call_deferred("_connect_network_time_events")
 
-func _on_net_time_event(event_name: String, payload: Dictionary, _from_peer: int) -> void:
-	# Hosts ignore their own network schedule/time events
+func _on_net_time_event(event_name: String, payload: Dictionary, from_peer: int) -> void:
+	# Host handles snapshot requests and countdown requests; ignores others
 	if _is_host():
+		if event_name == "time/snapshot_request":
+			send_time_snapshot_to(from_peer)
+			return
+		if event_name == EV_COUNTDOWN_REQUEST:
+			var secs: int = int(payload.get("seconds", 10))
+			_begin_countdown_host(secs)
+			return
 		return
+
+	match event_name:
+		"time/countdown_start":
+			var secs2: int = int(payload.get("seconds", 10))
+			_show_and_start_countdown(secs2)
+		"time/countdown_cancel":
+			_cancel_countdown_local()
+		"time/countdown_finish":
+			_finish_countdown_local()
+		"time/phase_change":
+			var from_phase_id: int = int(payload.get("from", TimeManager.TimePhase.PLANNING))
+			var to_phase_id: int = int(payload.get("to", TimeManager.TimePhase.PLANNING))
+			_play_phase_transition(from_phase_id, to_phase_id)
+		"time/snapshot":
+			apply_time_snapshot(payload, true)
+		"sched/flash":
+			var em := get_node_or_null("/root/EventManager")
+			if em:
+				em.emit_signal("flash_contract_available", {"at_hour": 12.0})
+# scripts/managers/TimeManager.gd  (inside _on_net_time_event match)
+# Inside _on_net_time_event match
+		"sched/weather":
+			var em2: Node = get_node_or_null("/root/EventManager")
+			if em2:
+				# End whatever weather the client currently has first
+				if em2.has_method("end_active_weather_events"):
+					em2.end_active_weather_events()
+
+				var id_s: String = String(payload.get("id","sunny"))
+				var wt: int = em2.WeatherType.SUNNY
+				if id_s == "cloudy": wt = em2.WeatherType.CLOUDY
+				elif id_s == "rain": wt = em2.WeatherType.RAINY
+				elif id_s == "storm": wt = em2.WeatherType.STORMY
+				elif id_s == "drought": wt = em2.WeatherType.DROUGHT
+				elif id_s == "fog": wt = em2.WeatherType.FOG
+				var dur: float = float(payload.get("dur", -1.0))
+				if dur > 0.0 and em2.has_method("force_weather_change_with_duration"):
+					em2.force_weather_change_with_duration(wt, dur)
+				elif em2.has_method("force_weather_change"):
+					em2.force_weather_change(wt)
+
+		"sched/weather_end":
+			var em3: Node = get_node_or_null("/root/EventManager")
+			if em3 and em3.has_method("end_active_weather_events"):
+				em3.end_active_weather_events()
+
 	match event_name:
 		"time/countdown_start":
 			var secs: int = int(payload.get("seconds", 10))
@@ -464,8 +533,10 @@ func _on_net_time_event(event_name: String, payload: Dictionary, _from_peer: int
 			var from_phase: int = int(payload.get("from", TimeManager.TimePhase.PLANNING))
 			var to_phase: int = int(payload.get("to", TimeManager.TimePhase.PLANNING))
 			_play_phase_transition(from_phase, to_phase)
+		"time/snapshot":
+			# Apply immediately; UI will catch up on next tick
+			apply_time_snapshot(payload, true)
 		"sched/flash":
-			# Mirror host: ensure EventManager announces the flash contract
 			var em := get_node_or_null("/root/EventManager")
 			if em:
 				em.emit_signal("flash_contract_available", {"at_hour": 12.0})
@@ -521,11 +592,15 @@ func _get_countdown_overlay() -> Node:
 	return get_node_or_null("/root/UIManager/UILayer/Overlays/CountdownOverlay")
 
 func _is_host() -> bool:
-	var nm = get_node_or_null("/root/NetworkManager")
+	var nm: Node = get_node_or_null("/root/NetworkManager")
 	if nm and "is_host" in nm:
 		return bool(nm.is_host)
 	return multiplayer.is_server()
 
+func _broadcast(name: String, payload: Dictionary) -> void:
+	var nm: Node = get_node_or_null("/root/NetworkManager")
+	if nm and nm.has_method("send_event"):
+		nm.send_event(name, payload)
 
 # ============================================================================
 # UTILITY FUNCTIONS
@@ -567,35 +642,27 @@ func _ensure_time_inputs() -> void:
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("time_start_day"):
-		if GameManager and GameManager.current_state != GameManager.GameState.PLAYING:
-			GameManager.change_state(GameManager.GameState.PLAYING)
-			await get_tree().process_frame
 		if _is_host():
+			# Host can open the countdown immediately
+			if GameManager and GameManager.current_state != GameManager.GameState.PLAYING:
+				GameManager.change_state(GameManager.GameState.PLAYING)
+				await get_tree().process_frame
 			_begin_countdown_host(10)
-	if event.is_action_pressed("time_toggle_hud"):
-		var ui = get_node_or_null("/root/UIManager")
-		if ui and ui.has_method("show_overlay"):
-			if get_node_or_null("/root/UIManager/UILayer/Overlays/TimeDisplay"):
-				ui.hide_overlay("time_display")
-			else:
-				ui.show_overlay("time_display")
-	if event.is_action_pressed("time_toggle_calendar"):
-		var ui = get_node_or_null("/root/UIManager")
-		if ui and ui.has_method("show_overlay"):
-			if get_node_or_null("/root/UIManager/UILayer/Overlays/CalendarUI"):
-				ui.hide_overlay("calendar")
-			else:
-				ui.show_overlay("calendar")
+		else:
+			# Client asks host to start the countdown
+			var nm: Node = get_node_or_null("/root/NetworkManager")
+			if nm and nm.has_method("send_event"):
+				nm.send_event(EV_COUNTDOWN_REQUEST, {"seconds": 10})
 
 func _begin_countdown_host(seconds: int) -> void:
-	var ui = get_node_or_null("/root/UIManager")
+	var ui: Node = get_node_or_null("/root/UIManager")
+	var shown: bool = false
 	if ui and ui.has_method("show_overlay"):
-		ui.show_overlay("countdown")
-	var ov = _get_countdown_overlay()
+		shown = ui.show_overlay("countdown")
+	var ov := get_node_or_null("/root/UIManager/UILayer/Overlays/CountdownOverlay")
 	if ov and ov.has_method("start_countdown"):
-		ov.start_countdown(seconds, true)  # host broadcasts once
-	else:
-		# Fallback if overlay missing
+		ov.start_countdown(seconds, true)  # host broadcasts
+	elif not shown and has_method("start_day"):
 		start_day()
 
 func _spawn_event_scheduler_if_missing() -> void:
@@ -612,6 +679,74 @@ func _spawn_difficulty_scaler_if_missing() -> void:
 		var s := preload("res://scripts/time/DifficultyScaler.gd").new()
 		s.name = "DifficultyScaler"
 		get_tree().root.add_child(s)
+
+# =================================================================
+# SNAPSHOTS
+# =================================================================
+
+func build_time_snapshot() -> Dictionary:
+	var d: int = current_day
+	var p: int = current_phase
+	var elapsed: float = phase_time_elapsed
+	var duration: float = float(phase_durations.get(p, 1.0))
+	var speed: float = game_speed
+	var paused: bool = is_paused
+	var percent: float = 0.0
+	if duration > 0.0:
+		percent = clamp(elapsed / duration, 0.0, 1.0)
+	var dnc: Node = get_node_or_null("/root/DayNightCycle")
+	var hour: float = 6.0
+	if dnc and dnc.has_method("get_decimal_hour"):
+		hour = float(dnc.get_decimal_hour())
+	return {
+		"day": d,
+		"phase": p,
+		"elapsed": elapsed,
+		"duration": duration,
+		"percent": percent,
+		"speed": speed,
+		"paused": paused,
+		"hour": hour
+	}
+
+func apply_time_snapshot(snap: Dictionary, announce: bool = true) -> void:
+	if snap.is_empty():
+		return
+	var new_day: int = int(snap.get("day", current_day))
+	var new_phase: int = int(snap.get("phase", current_phase))
+	var elapsed: float = float(snap.get("elapsed", 0.0))
+	var duration: float = float(snap.get("duration", 1.0))
+	var speed: float = float(snap.get("speed", game_speed))
+	var paused: bool = bool(snap.get("paused", is_paused))
+	var old_phase: int = current_phase
+
+	current_day = new_day
+	current_phase = new_phase
+	phase_time_elapsed = clamp(elapsed, 0.0, duration)
+	game_speed = speed
+	is_paused = paused
+
+	# Optional UI refresh
+	if announce and old_phase != new_phase:
+		phase_changed.emit(old_phase, new_phase)
+		_on_phase_entered(new_phase)
+
+func send_time_snapshot_to(peer_id: int) -> void:
+	var nm: Node = get_node_or_null("/root/NetworkManager")
+	if nm and nm.has_method("send_event"):
+		nm.send_event("time/snapshot", build_time_snapshot(), peer_id)
+
+func _on_peer_connected_for_time(peer_id: int) -> void:
+	# Only the host responds with a snapshot
+	if _is_host():
+		send_time_snapshot_to(peer_id)
+
+func _on_connected_to_server_for_time() -> void:
+	# Client politely asks host for a snapshot (in case we missed the proactive send)
+	var nm: Node = get_node_or_null("/root/NetworkManager")
+	if nm and nm.has_method("send_event"):
+		nm.send_event("time/snapshot_request", {})
+
 
 # ============================================================================
 # DEBUG

@@ -82,6 +82,7 @@ func _ready() -> void:
 	# Create players
 	_init_bgm_player()
 	_init_sfx_pool()
+	_register_default_audio()
 
 	# Apply default volumes/mutes
 	_apply_all_bus_settings()
@@ -250,3 +251,18 @@ func get_debug_info() -> Dictionary:
 		"volumes": volumes,
 		"mutes": mutes
 	}
+
+func _load_audio(path: String) -> AudioStream:
+	var s: Resource = load(path)
+	return s as AudioStream
+
+func _register_default_audio() -> void:
+	# SFX (play_sfx)
+	var s: AudioStream
+	s = _load_audio("res://assets/sounds/time/countdown_beep.ogg"); if s: register_sfx("countdown_beep", s)
+	s = _load_audio("res://assets/sounds/time/phase_transition.ogg"); if s: register_sfx("phase_transition", s)
+	s = _load_audio("res://assets/sounds/time/day_end_bell.ogg"); if s: register_sfx("day_end_bell", s)
+
+	# Ambience/BGM (play_bgm) — used by WeatherEffects
+	s = _load_audio("res://assets/sounds/weather/rain_loop.ogg"); if s: register_bgm("rain_loop", s)
+	s = _load_audio("res://assets/sounds/weather/thunder.ogg"); if s: register_bgm("thunder", s)

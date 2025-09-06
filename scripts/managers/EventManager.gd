@@ -113,6 +113,8 @@ var completed_story_events: Array[String] = []
 func _ready() -> void:
 	name = "EventManager"
 	print("[EventManager] Initializing as Autoload #6...")
+	process_mode = Node.PROCESS_MODE_ALWAYS
+	set_process(true)
 	
 	# Get system references
 	time_manager = TimeManager
@@ -159,15 +161,10 @@ func _initialize_event_system() -> void:
 func _process(delta: float) -> void:
 	if GameManager.current_state != GameManager.GameState.PLAYING:
 		return
-	
-	# Process active events
 	_update_active_events(delta)
-	
-	# Process event queue
 	_process_event_queue()
-	
-	# Check for random events
-	_check_random_events()
+	if _is_host():
+		_check_random_events()
 
 func _update_active_events(delta: float) -> void:
 	"""Update all active events"""
@@ -210,6 +207,24 @@ func _check_random_events() -> void:
 # ============================================================================
 # EVENT LIFECYCLE
 # ============================================================================
+func _is_host() -> bool:
+	var nm: Node = get_node_or_null("/root/NetworkManager")
+	# Single-player/offline → act as host
+	if nm == null:
+		return true
+	if nm.has_method("is_network_active") and not nm.is_network_active():
+		return true
+	# Session active → use NetworkManager flag
+	if "is_host" in nm:
+		return bool(nm.is_host)
+	return multiplayer.is_server()
+
+
+func _broadcast(name: String, payload: Dictionary) -> void:
+	var nm: Node = get_node_or_null("/root/NetworkManager")
+	if nm and nm.has_method("send_event"):
+		nm.send_event(name, payload)
+
 func _queue_event(event: GameEvent) -> void:
 	"""Add an event to the queue"""
 	event_queue.append(event)
@@ -228,23 +243,21 @@ func _start_event(event: GameEvent) -> void:
 	_apply_event_start_effects(event)
 
 func _end_event(event: GameEvent, completed: bool = false) -> void:
-	"""End an active event"""
 	event.is_active = false
 	event.is_completed = completed
-	
-	# Remove from active list
+
 	var index: int = active_events.find(event)
 	if index >= 0:
 		active_events.remove_at(index)
-	
-	# Add to history
+
 	event_history.append(event)
-	
 	print("[EventManager] Event ended: %s (completed: %s)" % [event.title, completed])
 	event_ended.emit(event, completed)
-	
-	# Apply end effects
 	_apply_event_end_effects(event, completed)
+
+	# Host notifies clients to hard-stop visuals if they drift
+	if event.event_type == EventType.WEATHER and _is_host():
+		_broadcast("sched/weather_end", {})
 
 # ============================================================================
 # WEATHER SYSTEM
@@ -316,6 +329,42 @@ func _change_weather(new_weather: WeatherType) -> void:
 	# Create weather event
 	var weather_event: GameEvent = _create_weather_event(new_weather)
 	_queue_event(weather_event)
+
+# Add this near your other public helpers in scripts/managers/EventManager.gd
+
+func force_weather_change_with_duration(new_weather: WeatherType, duration: float) -> void:
+	_change_weather_with_duration(new_weather, duration)
+
+func _change_weather_with_duration(new_weather: WeatherType, duration: float) -> void:
+	var old_weather: WeatherType = current_weather
+	current_weather = new_weather
+	weather_intensity = randf_range(0.5, 1.5)
+	last_weather_change = Time.get_unix_time_from_system()
+
+	print("[EventManager] Weather changed (sync): %s -> %s (intensity: %.1f, dur: %.0fs)" % [
+		_weather_to_string(old_weather),
+		_weather_to_string(new_weather),
+		weather_intensity,
+		duration
+	])
+
+	weather_changed.emit(old_weather, new_weather)
+
+	var weather_event: GameEvent = _create_weather_event(new_weather)
+	weather_event.duration = max(1.0, duration)
+
+	# Start immediately if we have capacity; otherwise queue
+	if active_events.size() < max_concurrent_events:
+		_start_event(weather_event)
+	else:
+		_queue_event(weather_event)
+
+
+func end_active_weather_events() -> void:
+	for i in range(active_events.size() - 1, -1, -1):
+		var e: GameEvent = active_events[i]
+		if e.event_type == EventType.WEATHER:
+			_end_event(e, true)
 
 # ============================================================================
 # EVENT CREATION FACTORIES

@@ -120,8 +120,12 @@ func _schedule_path_for_week(week: int) -> String:
 		_: return "res://resources/schedules/week1_schedule.tres"
 
 func _on_time_updated(_h: int, _m: int, percent: float) -> void:
-	if not _is_host():
+	# Gate only when a session exists; offline acts as host
+	var nm: Node = get_node_or_null("/root/NetworkManager")
+	if nm and not nm.is_network_active() and nm.has_method("host"):
+		nm.host(25252)  # quick local host for the test
 		return
+
 	if todays_entries.is_empty():
 		return
 
@@ -164,13 +168,19 @@ func _try_fire_entry(entry: Dictionary) -> void:
 	entry_fired.emit(entry)
 	_update_calendar_list()
 
+# scripts/events/EventScheduler.gd
 func _fire_entry(entry: Dictionary) -> void:
 	var t: String = String(entry.get("type",""))
 	var id_s: String = String(entry.get("id",""))
 	match t:
 		"WEATHER":
-			_fire_weather(id_s)
-			_broadcast("sched/weather", {"id": id_s})
+			var wt: int = _weather_from_string(id_s)
+			var dur: float = randf_range(120.0, 300.0)  # 2–5 minutes
+			if event_manager and event_manager.has_method("force_weather_change_with_duration"):
+				event_manager.force_weather_change_with_duration(wt, dur)
+			elif event_manager and event_manager.has_method("force_weather_change"):
+				event_manager.force_weather_change(wt)
+			_broadcast("sched/weather", {"id": id_s, "dur": dur})
 		"CONTRACT":
 			if id_s == "flash":
 				_fire_flash_contract()
@@ -243,9 +253,17 @@ func _entry_title(e: Dictionary) -> String:
 		_: return id_s
 
 func _is_host() -> bool:
-	if network_manager and "is_host" in network_manager:
-		return bool(network_manager.is_host)
+	var nm: Node = get_node_or_null("/root/NetworkManager")
+	# Single-player/offline → act as host
+	if nm == null:
+		return true
+	if nm.has_method("is_network_active") and not nm.is_network_active():
+		return true
+	# Session active → use NetworkManager flag
+	if "is_host" in nm:
+		return bool(nm.is_host)
 	return multiplayer.is_server()
+
 
 func _broadcast(name: String, payload: Dictionary) -> void:
 	if network_manager and network_manager.has_method("send_event"):
