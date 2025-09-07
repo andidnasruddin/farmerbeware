@@ -6,27 +6,7 @@ extends Node
 # ============================================================================
 # ENUMS AND CONSTANTS
 # ============================================================================
-enum CropType {
-	# Tier 1 - Easy crops
-	LETTUCE,
-	CORN,
-	WHEAT,
-	
-	# Tier 2 - Medium crops
-	TOMATO,
-	POTATO,
-	
-	# Tier 3 - Hard crops
-	PUMPKIN,
-	STRAWBERRY,
-	
-	# Tier 4 - Expert crops
-	WATERMELON,
-	
-	# Special crops
-	GOLDEN_WHEAT,
-	CRYSTAL_BERRY
-}
+# Note: CropType enum is now defined in CropData resource
 
 enum GrowthStage {
 	SEED,           # Just planted
@@ -47,40 +27,46 @@ enum CropQuality {
 # ============================================================================
 # DATA STRUCTURES
 # ============================================================================
-class CropData:
-	var crop_type: CropType
-	var position: Vector2i
+# Runtime crop instance - combines CropData resource with dynamic state
+class CropInstance:
+	var crop_data: CropData                     # Reference to crop resource
+	var position: Vector2i                      # Grid position
 	var growth_stage: GrowthStage = GrowthStage.SEED
 	var quality: CropQuality = CropQuality.NORMAL
 	
 	# Growth timing
 	var planted_time: float = 0.0
 	var stage_start_time: float = 0.0
-	var maturity_time: float = 60.0      # Base time to mature in seconds
-	var growth_progress: float = 0.0     # 0.0 to 1.0 within current stage
+	var maturity_time: float = 60.0             # From crop_data with variance
+	var growth_progress: float = 0.0            # 0.0 to 1.0 within current stage
 	
 	# Health and care
-	var health: float = 1.0              # 0.0 to 1.0
-	var water_level: float = 1.0         # 0.0 to 1.0
-	var fertilizer_level: float = 0.0    # 0.0 to 1.0
-	var care_quality: float = 1.0        # Overall care factor
+	var health: float = 1.0                     # 0.0 to 1.0
+	var water_level: float = 1.0                # 0.0 to 1.0
+	var fertilizer_level: float = 0.0           # 0.0 to 1.0
+	var care_quality: float = 1.0               # Overall care factor
 	
 	# Environmental factors
-	var soil_fertility: float = 0.7      # From tile
-	var weather_effects: float = 1.0     # From weather events
-	var disease_resistance: float = 1.0  # Disease immunity
+	var soil_fertility: float = 0.7             # From tile
+	var weather_effects: float = 1.0            # From weather events
+	var disease_resistance: float = 1.0         # From crop_data
 	
 	# Special properties
-	var is_giant: bool = false           # Can become giant crop
-	var is_mutated: bool = false         # Random mutations
+	var is_giant: bool = false                  # Can become giant crop
+	var is_mutated: bool = false                # Random mutations
 	var special_traits: Array[String] = []
 	
-	func _init(c_type: CropType, pos: Vector2i) -> void:
-		crop_type = c_type
+	func _init(crop_resource: CropData, pos: Vector2i) -> void:
+		if not crop_resource:
+			print("[CropInstance] ERROR: crop_resource is null!")
+			return
+		
+		crop_data = crop_resource
 		position = pos
 		planted_time = Time.get_unix_time_from_system()
 		stage_start_time = planted_time
-		maturity_time = _get_base_maturity_time(c_type)
+		maturity_time = crop_data.get_growth_time_with_variance()
+		disease_resistance = crop_data.disease_resistance
 	
 	func get_age() -> float:
 		return Time.get_unix_time_from_system() - planted_time
@@ -94,27 +80,18 @@ class CropData:
 	func is_harvestable() -> bool:
 		return growth_stage in [GrowthStage.MATURE, GrowthStage.OVERRIPE]
 	
-	func _get_base_maturity_time(c_type: CropType) -> float:
-		match c_type:
-			CropType.LETTUCE: return 30.0     # Fast growing
-			CropType.CORN: return 45.0       # Medium
-			CropType.WHEAT: return 40.0      # Medium  
-			CropType.TOMATO: return 60.0     # Slower
-			CropType.POTATO: return 50.0     # Medium-slow
-			CropType.PUMPKIN: return 90.0    # Very slow
-			CropType.STRAWBERRY: return 70.0 # Slow
-			CropType.WATERMELON: return 120.0 # Very slow
-			_: return 60.0
+	func get_crop_name() -> String:
+		return crop_data.crop_name if crop_data else "Unknown"
 
 # ============================================================================
 # SIGNALS
 # ============================================================================
-signal crop_growth_stage_changed(position: Vector2i, crop: CropData, old_stage: GrowthStage, new_stage: GrowthStage)
-signal crop_quality_changed(position: Vector2i, crop: CropData, old_quality: CropQuality, new_quality: CropQuality)
-signal crop_matured(position: Vector2i, crop: CropData)
-signal crop_died(position: Vector2i, crop: CropData, reason: String)
-signal giant_crop_formed(position: Vector2i, crop: CropData)
-signal crop_mutated(position: Vector2i, crop: CropData, mutation: String)
+signal crop_growth_stage_changed(position: Vector2i, crop: CropInstance, old_stage: GrowthStage, new_stage: GrowthStage)
+signal crop_quality_changed(position: Vector2i, crop: CropInstance, old_quality: CropQuality, new_quality: CropQuality)
+signal crop_matured(position: Vector2i, crop: CropInstance)
+signal crop_died(position: Vector2i, crop: CropInstance, reason: String)
+signal giant_crop_formed(position: Vector2i, crop: CropInstance)
+signal crop_mutated(position: Vector2i, crop: CropInstance, mutation: String)
 
 # ============================================================================
 # PROPERTIES
@@ -124,10 +101,18 @@ var grid_manager: Node = null
 var time_manager: Node = null
 var event_manager: Node = null
 
-# Crop tracking
-var active_crops: Dictionary = {}        # Vector2i -> CropData
+# Crop tracking and resources
+var active_crops: Dictionary = {}        # Vector2i -> CropInstance
+var crop_resources: Dictionary = {}      # String -> CropData (loaded resources)
 var crop_growth_multiplier: float = 1.0 # Global growth speed
 var quality_bonus: float = 0.0          # Global quality bonus
+
+# Resource paths for crop data
+var crop_resource_paths: Dictionary = {
+	"lettuce": "res://resources/crops/tier1/lettuce.tres",
+	"corn": "res://resources/crops/tier1/corn.tres",
+	"wheat": "res://resources/crops/tier1/wheat.tres"
+}
 
 # Growth parameters
 var growth_stages_per_crop: int = 4      # SEED -> SPROUT -> YOUNG -> MATURE
@@ -186,6 +171,9 @@ func _ready() -> void:
 	else:
 		print("[CropManager] WARNING: EventManager not found!")
 	
+	# Load crop resources
+	_load_crop_resources()
+	
 	# Initialize crop system
 	_initialize_crop_system()
 	
@@ -195,6 +183,25 @@ func _ready() -> void:
 		print("[CropManager] Registered with GameManager")
 	
 	print("[CropManager] Initialization complete!")
+
+func _load_crop_resources() -> void:
+	"""Load all crop resource files"""
+	crop_resources.clear()
+	
+	for crop_name in crop_resource_paths:
+		var resource_path: String = crop_resource_paths[crop_name]
+		var crop_resource: CropData = load(resource_path)
+		
+		if crop_resource:
+			if crop_resource.is_valid():
+				crop_resources[crop_name] = crop_resource
+				print("[CropManager] Loaded crop resource: %s" % crop_name)
+			else:
+				print("[CropManager] ERROR: Invalid crop resource: %s" % crop_name)
+		else:
+			print("[CropManager] ERROR: Failed to load crop resource: %s at %s" % [crop_name, resource_path])
+	
+	print("[CropManager] Loaded %d crop resources" % crop_resources.size())
 
 func _initialize_crop_system() -> void:
 	"""Initialize the crop management system"""
@@ -229,12 +236,12 @@ func _process(delta: float) -> void:
 func _process_all_crops() -> void:
 	"""Process growth and care for all active crops"""
 	for position in active_crops:
-		var crop: CropData = active_crops[position]
+		var crop: CropInstance = active_crops[position]
 		_process_crop_growth(crop)
 		_process_crop_care(crop)
 		_check_crop_conditions(crop)
 
-func _process_crop_growth(crop: CropData) -> void:
+func _process_crop_growth(crop: CropInstance) -> void:
 	"""Process growth for a single crop"""
 	if crop.growth_stage == GrowthStage.DEAD:
 		return
@@ -251,10 +258,11 @@ func _process_crop_growth(crop: CropData) -> void:
 	if crop.growth_progress >= stage_duration:
 		_advance_growth_stage(crop)
 
-func _process_crop_care(crop: CropData) -> void:
+func _process_crop_care(crop: CropInstance) -> void:
 	"""Process crop care requirements"""
-	# Water consumption over time
-	crop.water_level -= water_consumption_rate * processing_interval
+	# Water consumption over time (use crop-specific rate)
+	var consumption_rate: float = crop.crop_data.water_consumption_rate if crop.crop_data else water_consumption_rate
+	crop.water_level -= consumption_rate * processing_interval
 	crop.water_level = max(0.0, crop.water_level)
 	
 	# Fertilizer decay over time
@@ -277,22 +285,28 @@ func _process_crop_care(crop: CropData) -> void:
 # ============================================================================
 func _on_crop_planted(position: Vector2i, crop_type: String) -> void:
 	"""Handle when a crop is planted in GridManager"""
-	var crop_enum: CropType = _string_to_crop_type(crop_type)
-	var crop_data: CropData = CropData.new(crop_enum, position)
+	# Get crop resource by name
+	var crop_resource: CropData = crop_resources.get(crop_type.to_lower(), null)
+	if not crop_resource:
+		print("[CropManager] ERROR: Unknown crop type: %s" % crop_type)
+		return
+	
+	# Create crop instance from resource
+	var crop_instance: CropInstance = CropInstance.new(crop_resource, position)
 	
 	# Get soil conditions from GridManager
 	if grid_manager:
 		var tile: FarmTileData = grid_manager.get_tile(position)
 		if tile:
-		# Convert 0..100 water_content to 0..1
-			crop_data.water_level = clamp(tile.water_content / 100.0, 0.0, 1.0)
+			# Convert 0..100 water_content to 0..1
+			crop_instance.water_level = clamp(tile.water_content / 100.0, 0.0, 1.0)
 			# Simple fertility proxy from NPK (0..100 each -> 0..1)
-			crop_data.soil_fertility = clamp((tile.nitrogen + tile.phosphorus + tile.potassium) / 300.0, 0.0, 1.0)
+			crop_instance.soil_fertility = clamp((tile.nitrogen + tile.phosphorus + tile.potassium) / 300.0, 0.0, 1.0)
 	
-	# Store crop data for tracking
-	active_crops[position] = crop_data
+	# Store crop instance for tracking
+	active_crops[position] = crop_instance
 	
-	print("[CropManager] Crop registered: %s at %s" % [crop_type, position])
+	print("[CropManager] Crop registered: %s (%s) at %s" % [crop_resource.crop_name, crop_type, position])
 
 func _on_crop_harvested(position: Vector2i, crop_type: String, yield_amount: int) -> void:
 	"""Handle when a crop is harvested"""
@@ -300,19 +314,20 @@ func _on_crop_harvested(position: Vector2i, crop_type: String, yield_amount: int
 		print("[CropManager] WARNING: Harvested crop not in tracking: %s" % position)
 		return
 	
-	var crop_data: CropData = active_crops[position]
+	var crop_instance: CropInstance = active_crops[position]
 	
 	# Calculate final quality and yield
-	var final_quality: CropQuality = _calculate_final_quality(crop_data)
+	var final_quality: CropQuality = _calculate_final_quality(crop_instance)
 	var quality_multiplier: float = _get_quality_multiplier(final_quality)
-	var final_yield: int = int(yield_amount * quality_multiplier)
+	var base_yield: int = crop_instance.crop_data.base_yield if crop_instance.crop_data else yield_amount
+	var final_yield: int = int(base_yield * quality_multiplier)
 	var q_idx: int = CropQuality.values().find(int(final_quality))
 	var q_name: String = "UNKNOWN"
 	if q_idx != -1:
 		q_name = String(CropQuality.keys()[q_idx])
 
 	print("[CropManager] Crop harvested: %s quality %s (yield: %d)" % [
-		crop_type,
+		crop_instance.get_crop_name(),
 		q_name,
 		final_yield
 	])
@@ -320,7 +335,7 @@ func _on_crop_harvested(position: Vector2i, crop_type: String, yield_amount: int
 	# Remove from tracking
 	active_crops.erase(position)
 
-func _advance_growth_stage(crop: CropData) -> void:
+func _advance_growth_stage(crop: CropInstance) -> void:
 	"""Advance crop to next growth stage"""
 	var old_stage: GrowthStage = crop.growth_stage
 	var new_stage: GrowthStage = _get_next_growth_stage(crop.growth_stage)
@@ -351,7 +366,7 @@ func _get_next_growth_stage(current_stage: GrowthStage) -> GrowthStage:
 		GrowthStage.OVERRIPE: return GrowthStage.DEAD
 		_: return GrowthStage.DEAD
 
-func _on_crop_matured(crop: CropData) -> void:
+func _on_crop_matured(crop: CropInstance) -> void:
 	"""Handle crop reaching maturity"""
 	# Calculate final quality based on care
 	crop.quality = _calculate_crop_quality(crop)
@@ -369,7 +384,7 @@ func _on_crop_matured(crop: CropData) -> void:
 # ============================================================================
 # QUALITY CALCULATION SYSTEM
 # ============================================================================
-func _calculate_care_quality(crop: CropData) -> float:
+func _calculate_care_quality(crop: CropInstance) -> float:
 	"""Calculate overall care quality for a crop"""
 	# Weight different care factors
 	var water_factor: float = crop.water_level
@@ -387,9 +402,12 @@ func _calculate_care_quality(crop: CropData) -> float:
 	
 	return clamp(care_quality, 0.0, 1.0)
 
-func _calculate_growth_rate(crop: CropData) -> float:
+func _calculate_growth_rate(crop: CropInstance) -> float:
 	"""Calculate growth rate based on all factors"""
 	var base_rate: float = 1.0
+	
+	# Apply stage-specific growth modifiers if crop has CropStages
+	var stage_modifier: float = _get_stage_growth_modifier(crop)
 	
 	# Care factor (good care = faster growth)
 	var care_factor: float = crop.care_quality
@@ -401,11 +419,44 @@ func _calculate_growth_rate(crop: CropData) -> float:
 	var global_factor: float = crop_growth_multiplier
 	
 	# Combined rate
-	var final_rate: float = base_rate * care_factor * weather_factor * global_factor
+	var final_rate: float = base_rate * stage_modifier * care_factor * weather_factor * global_factor
 	
 	return max(0.1, final_rate)  # Minimum 10% growth rate
 
-func _calculate_crop_quality(crop: CropData) -> CropQuality:
+func _get_stage_growth_modifier(crop: CropInstance) -> float:
+	"""Get stage-specific growth modifier from CropStages system"""
+	if not crop.crop_data:
+		return 1.0
+	
+	# Create temporary CropStages for this calculation
+	var crop_stages: CropStages = CropStages.new(crop.crop_data)
+	if not crop_stages:
+		return 1.0
+	
+	# Convert our growth stage to CropStages enum
+	var crop_stages_enum: CropStages.GrowthStage = _convert_to_crop_stages_enum(crop.growth_stage)
+	
+	return crop_stages.get_growth_modifier(crop_stages_enum)
+
+func _convert_to_crop_stages_enum(growth_stage: GrowthStage) -> CropStages.GrowthStage:
+	"""Convert CropManager GrowthStage to CropStages GrowthStage"""
+	match growth_stage:
+		GrowthStage.SEED:
+			return CropStages.GrowthStage.SEED
+		GrowthStage.SPROUT:
+			return CropStages.GrowthStage.SPROUT
+		GrowthStage.YOUNG:
+			return CropStages.GrowthStage.YOUNG
+		GrowthStage.MATURE:
+			return CropStages.GrowthStage.MATURE
+		GrowthStage.OVERRIPE:
+			return CropStages.GrowthStage.OVERRIPE
+		GrowthStage.DEAD:
+			return CropStages.GrowthStage.DEAD
+		_:
+			return CropStages.GrowthStage.SEED
+
+func _calculate_crop_quality(crop: CropInstance) -> CropQuality:
 	"""Calculate final crop quality based on care throughout growth"""
 	var care_score: float = crop.care_quality + quality_bonus
 	
@@ -419,7 +470,7 @@ func _calculate_crop_quality(crop: CropData) -> CropQuality:
 	else:
 		return CropQuality.POOR
 
-func _calculate_final_quality(crop: CropData) -> CropQuality:
+func _calculate_final_quality(crop: CropInstance) -> CropQuality:
 	"""Calculate final quality at harvest time"""
 	# Start with base quality from care
 	var base_quality: CropQuality = _calculate_crop_quality(crop)
@@ -444,7 +495,7 @@ func _get_quality_multiplier(quality: CropQuality) -> float:
 # ============================================================================
 # CROP CONDITION MONITORING
 # ============================================================================
-func _check_crop_conditions(crop: CropData) -> void:
+func _check_crop_conditions(crop: CropInstance) -> void:
 	"""Check crop conditions and handle death/problems"""
 	# Death from poor health
 	if crop.health <= 0.0:
@@ -458,7 +509,7 @@ func _check_crop_conditions(crop: CropData) -> void:
 			_kill_crop(crop, "overripe_decay")
 			return
 
-func _kill_crop(crop: CropData, reason: String) -> void:
+func _kill_crop(crop: CropInstance, reason: String) -> void:
 	"""Kill a crop and handle cleanup"""
 	crop.growth_stage = GrowthStage.DEAD
 	crop.health = 0.0
@@ -471,16 +522,17 @@ func _kill_crop(crop: CropData, reason: String) -> void:
 # ============================================================================
 # SPECIAL CROP MECHANICS
 # ============================================================================
-func _check_giant_crop_formation(crop: CropData) -> void:
+func _check_giant_crop_formation(crop: CropInstance) -> void:
 	"""Check if crop should become giant"""
-	# Only perfect care crops can become giant
-	if crop.care_quality >= 0.9 and randf() < giant_crop_chance:
+	# Only perfect care crops can become giant (use crop-specific chance)
+	var giant_chance: float = crop.crop_data.giant_crop_chance if crop.crop_data else giant_crop_chance
+	if crop.care_quality >= 0.9 and randf() < giant_chance:
 		crop.is_giant = true
 		crop.special_traits.append("giant")
 		giant_crop_formed.emit(crop.position, crop)
 		print("[CropManager] Giant crop formed at %s!" % crop.position)
 
-func _check_crop_mutation(crop: CropData) -> void:
+func _check_crop_mutation(crop: CropInstance) -> void:
 	"""Check for random crop mutations"""
 	if randf() < mutation_chance:
 		var possible_mutations: Array[String] = [
@@ -502,8 +554,10 @@ func _on_weather_changed(old_weather: int, new_weather: int) -> void:
 	
 	# Apply weather effects to all active crops
 	for position in active_crops:
-		var crop: CropData = active_crops[position]
-		crop.weather_effects = weather_multiplier
+		var crop: CropInstance = active_crops[position]
+		# Apply weather resistance from crop data
+		var resistance: float = crop.crop_data.weather_resistance if crop.crop_data else 0.0
+		crop.weather_effects = lerp(weather_multiplier, 1.0, resistance)
 	
 	print("[CropManager] Weather effects applied - Growth multiplier: %.1f" % weather_multiplier)
 
@@ -537,45 +591,43 @@ func _on_time_tick(current_time: float, phase: int) -> void:
 # ============================================================================
 # UTILITY FUNCTIONS
 # ============================================================================
-func _string_to_crop_type(crop_string: String) -> CropType:
-	"""Convert string to CropType enum"""
-	match crop_string.to_lower():
-		"lettuce": return CropType.LETTUCE
-		"corn": return CropType.CORN
-		"wheat": return CropType.WHEAT
-		"tomato": return CropType.TOMATO
-		"potato": return CropType.POTATO
-		"pumpkin": return CropType.PUMPKIN
-		"strawberry": return CropType.STRAWBERRY
-		"watermelon": return CropType.WATERMELON
-		"golden_wheat": return CropType.GOLDEN_WHEAT
-		"crystal_berry": return CropType.CRYSTAL_BERRY
-		_: 
-			print("[CropManager] Unknown crop type: %s, defaulting to lettuce" % crop_string)
-			return CropType.LETTUCE
+func get_crop_resource(crop_name: String) -> CropData:
+	"""Get crop resource by name"""
+	return crop_resources.get(crop_name.to_lower(), null)
 
-func get_crop_at_position(position: Vector2i) -> CropData:
-	"""Get crop data at specific position"""
+func has_crop_resource(crop_name: String) -> bool:
+	"""Check if crop resource exists"""
+	return crop_resources.has(crop_name.to_lower())
+
+func get_available_crops() -> Array[String]:
+	"""Get list of available crop names"""
+	var crop_names: Array[String] = []
+	for crop_name in crop_resources.keys():
+		crop_names.append(crop_name)
+	return crop_names
+
+func get_crop_at_position(position: Vector2i) -> CropInstance:
+	"""Get crop instance at specific position"""
 	return active_crops.get(position, null)
 
-func get_all_crops() -> Array[CropData]:
+func get_all_crops() -> Array[CropInstance]:
 	"""Get all active crops"""
-	var crops: Array[CropData] = []
+	var crops: Array[CropInstance] = []
 	for crop in active_crops.values():
 		crops.append(crop)
 	return crops
 
-func get_crops_by_stage(stage: GrowthStage) -> Array[CropData]:
+func get_crops_by_stage(stage: GrowthStage) -> Array[CropInstance]:
 	"""Get all crops at a specific growth stage"""
-	var filtered_crops: Array[CropData] = []
+	var filtered_crops: Array[CropInstance] = []
 	for crop in active_crops.values():
 		if crop.growth_stage == stage:
 			filtered_crops.append(crop)
 	return filtered_crops
 
-func get_mature_crops() -> Array[CropData]:
+func get_mature_crops() -> Array[CropInstance]:
 	"""Get all harvestable crops"""
-	var mature_crops: Array[CropData] = []
+	var mature_crops: Array[CropInstance] = []
 	for crop in active_crops.values():
 		if crop.is_harvestable():
 			mature_crops.append(crop)
@@ -604,6 +656,8 @@ func get_debug_info() -> Dictionary:
 	
 	return {
 		"total_crops": active_crops.size(),
+		"loaded_resources": crop_resources.size(),
+		"available_crops": get_available_crops(),
 		"mature_crops": mature_count,
 		"dead_crops": dead_count,
 		"giant_crops": giant_count,
@@ -618,7 +672,7 @@ func get_debug_info() -> Dictionary:
 
 func force_crop_maturation(position: Vector2i) -> bool:
 	"""Force a crop to mature instantly (debug)"""
-	var crop: CropData = get_crop_at_position(position)
+	var crop: CropInstance = get_crop_at_position(position)
 	if not crop:
 		print("[CropManager] No crop at position %s to mature" % position)
 		return false

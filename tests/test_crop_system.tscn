@@ -1,0 +1,8 @@
+[gd_scene load_steps=2 format=3 uid="uid://2euw0xt0deig"]
+
+[ext_resource type="Script" uid="uid://dn4222n2aifs0" path="res://tests/CropTestController.gd" id="1_abo5a"]
+
+[node name="CropSystemTest" type="Node2D"]
+
+[node name="CropTestController" type="Node2D" parent="."]
+script = ExtResource("1_abo5a")

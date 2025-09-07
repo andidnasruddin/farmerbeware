@@ -1,0 +1,35 @@
+[gd_resource type="Resource" script_class="CropData" load_steps=6 format=3 uid="uid://c7eaf2g5h8j1k"]
+
+[ext_resource type="Script" uid="uid://xe3bwny42cjf" path="res://scripts/resources/CropData.gd" id="1_0nmx7"]
+[ext_resource type="Texture2D" uid="uid://u8pm203st1gq" path="res://textures/crops/tier1/wheat_seed.png" id="2_1"]
+[ext_resource type="Texture2D" uid="uid://c0q4rd3m6pqeq" path="res://textures/crops/tier1/wheat_sprout.png" id="2_2"]
+[ext_resource type="Texture2D" uid="uid://o1l43bwd3gra" path="res://textures/crops/tier1/wheat_young.png" id="2_3"]
+[ext_resource type="Texture2D" uid="uid://dmag7blvn3agv" path="res://textures/crops/tier1/wheat_mature.png" id="2_4"]
+
+[resource]
+script = ExtResource("1_0nmx7")
+crop_name = "Wheat"
+crop_type = 2
+crop_tier = 1
+description = "The foundation of civilization! Wheat is a reliable grain crop that's highly valued in contracts. It grows steadily and provides consistent income, making it a farmer's best friend."
+base_growth_time = 40.0
+growth_stages = 4
+growth_variance = 0.18
+multi_harvest = false
+harvest_cycles = 1
+special_requirements = 4
+water_consumption_rate = 0.5
+soil_fertility_min = 0.3
+optimal_water_level = 0.65
+weather_resistance = 0.2
+base_value = 10
+base_yield = 4
+quality_multiplier_max = 2.2
+seed_cost = 4
+giant_crop_chance = 0.02
+growth_stage_textures = Array[Texture2D]([ExtResource("2_1"), ExtResource("2_2"), ExtResource("2_3"), ExtResource("2_4")])
+can_become_giant = true
+mutation_chance = 0.003
+seasonal_bonus = false
+weather_immunity = false
+disease_resistance = 1.0

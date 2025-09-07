@@ -1,0 +1,36 @@
+[gd_scene load_steps=5 format=3 uid="uid://b0k37olmyh5me"]
+
+[ext_resource type="Script" uid="uid://ddhevp8ohkrsa" path="res://scripts/crops/Crop.gd" id="1_4inxc"]
+[ext_resource type="Script" uid="uid://dykweqaebbdf1" path="res://scripts/crops/CropVisuals.gd" id="2_k4r71"]
+[ext_resource type="Script" uid="uid://c0yx5gwi2gpo2" path="res://scripts/crops/CropGrowth.gd" id="3_growth"]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_1"]
+size = Vector2(32, 32)
+
+[node name="Crop" type="Node2D"]
+script = ExtResource("1_4inxc")
+
+[node name="Sprite2D" type="Sprite2D" parent="."]
+
+[node name="GrowthParticles" type="GPUParticles2D" parent="."]
+emitting = false
+
+[node name="WaterIndicator" type="Node2D" parent="."]
+visible = false
+
+[node name="QualityStars" type="Node2D" parent="."]
+visible = false
+
+[node name="DiseaseIndicator" type="Node2D" parent="."]
+visible = false
+
+[node name="CropVisuals" type="Node2D" parent="."]
+script = ExtResource("2_k4r71")
+
+[node name="CropGrowth" type="Node" parent="."]
+script = ExtResource("3_growth")
+
+[node name="Area2D" type="Area2D" parent="."]
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Area2D"]
+shape = SubResource("RectangleShape2D_1")

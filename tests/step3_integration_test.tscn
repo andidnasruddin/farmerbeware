@@ -1,0 +1,29 @@
+[gd_scene load_steps=3 format=3 uid="uid://ta6u4m8wbnyk"]
+
+[ext_resource type="Script" uid="uid://d0vnbcovu1d8g" path="res://tests/Step3IntegrationTestController.gd" id="1_kxo50"]
+[ext_resource type="Script" uid="uid://7wwrummr1wef" path="res://tests/TestUIController.gd" id="2_xrhkx"]
+
+[node name="Step3IntegrationTest" type="Node2D"]
+
+[node name="IntegrationTestController" type="Node2D" parent="."]
+script = ExtResource("1_kxo50")
+
+[node name="TestUILayer" type="CanvasLayer" parent="."]
+
+[node name="TestInfoPanel" type="Control" parent="TestUILayer"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+script = ExtResource("2_xrhkx")
+
+[node name="InfoContainer" type="VBoxContainer" parent="TestUILayer/TestInfoPanel"]
+layout_mode = 0
+
+[node name="TestTitleLabel" type="Label" parent="TestUILayer/TestInfoPanel/InfoContainer"]
+layout_mode = 2
+text = "Step 3 Integration Tests: Stage-Aware Growth System"
+
+[node name="TestStatusLabel" type="Label" parent="TestUILayer/TestInfoPanel/InfoContainer"]
+layout_mode = 2
+text = "Press SPACE to start tests, ENTER for report, ESC to clear"

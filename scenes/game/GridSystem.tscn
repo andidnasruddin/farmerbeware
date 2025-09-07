@@ -1,4 +1,4 @@
-[gd_scene load_steps=8 format=3 uid="uid://do3cvd62fojx4"]
+[gd_scene load_steps=9 format=3 uid="uid://do3cvd62fojx4"]
 
 [ext_resource type="PackedScene" uid="uid://c3guexuc8edxo" path="res://scenes/visual/TileMapRenderer.tscn" id="1_0psxa"]
 [ext_resource type="PackedScene" uid="uid://d3xcxvye88epq" path="res://scenes/items/Crate.tscn" id="1_6er0p"]
@@ -7,6 +7,7 @@
 [ext_resource type="PackedScene" uid="uid://cvt2frmd0nnde" path="res://scenes/player/Player.tscn" id="4_xrkjl"]
 [ext_resource type="PackedScene" uid="uid://c472csxjpf31e" path="res://scenes/ui/EmoteWheel.tscn" id="5_7y2jo"]
 [ext_resource type="PackedScene" uid="uid://bbkpd5ylxh5s0" path="res://scenes/ui/ToolSelector.tscn" id="7_ep3ea"]
+[ext_resource type="PackedScene" uid="uid://ta6u4m8wbnyk" path="res://tests/step3_integration_test.tscn" id="8_6er0p"]
 
 [node name="GridSystem" type="Node2D"]
 
@@ -35,3 +36,5 @@ offset_bottom = 609.0
 
 [node name="Crate" parent="." instance=ExtResource("1_6er0p")]
 position = Vector2(611, 169)
+
+[node name="Step3IntegrationTest" type="Node2D" parent="." instance=ExtResource("8_6er0p")]
